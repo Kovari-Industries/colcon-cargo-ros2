@@ -18,6 +18,10 @@ build:
     fi
     colcon build --symlink-install
 
+test:
+    colcon test
+    colcon test-result --all
+
 # Clean build artifacts
 clean:
     rm -rf build install log
