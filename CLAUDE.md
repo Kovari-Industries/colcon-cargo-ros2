@@ -809,24 +809,23 @@ just run                   # Execute test binary
 ## CI/CD
 
 GitHub Actions workflows:
-- **wheels.yml**: Production builds (triggered by tags, publishes to PyPI)
-- **test-build.yml**: Quick validation on PRs
-
-Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.13.
+- **ci.yaml**: Rust lint/test + Python lint/test on push to main and PRs
+- **wheels.yml**: Production release (triggered by `v*` tags). Runs full lint/test gate, builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.13, smoke-tests one wheel per platform, then publishes to PyPI via trusted publishing
+- **test-build.yml**: Quick wheel build validation on push to main and PRs
 
 ## Status
 
-**Version**: v0.3.3 (2026-03-02)
-**Progress**: 16/20 subphases (80%) | 265 tests passing (211 Rust + 54 Python) | Zero warnings
-**Latest**: Consolidated `.cargo/config.toml` — patches + rustflags in one file, no `--config` flag ✅
+**Version**: v0.4.0 (2026-03-03)
+**Progress**: 16/20 subphases (80%) | 280 tests passing (215 Rust + 65 Python) | Zero warnings
+**Latest**: Rust 2024 edition, consolidated `.cargo/config.toml`, release workflow audit ✅
 **Testing**: Validated with:
 - autoware_carla_bridge (118 packages) ✅
 - cuda_ndt_matcher (16 Autoware + standard packages) ✅
 - complex_workspace (50+ message types from 17 packages) ✅
 
 **Versions**:
-- Rust workspace: v0.2.0 (rosidl-parser, rosidl-codegen, rosidl-bindgen, cargo-ros2)
-- Python package: v0.3.3 (colcon-cargo-ros2)
+- Rust workspace: v0.2.0 (rosidl-parser, rosidl-codegen, rosidl-bindgen, cargo-ros2), edition 2024
+- Python package: v0.4.0 (colcon-cargo-ros2)
 - Target: rclrs 0.7 + rosidl_runtime_rs 0.6
 - Author: Lin Hsiang-Jui <jerry73204@gmail.com>
 
@@ -858,5 +857,6 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 - ✅ Version management with `just bump-version`
 - ✅ Configurable `rosidl_runtime_rs` version (default 0.6, `--rosidl-runtime-rs-version` CLI override)
 - ✅ IDE support via `.cargo/config.toml` generation (Phase 6)
+- ✅ Rust 2024 edition (let chains, unsafe env var ops)
 
 **Next**: Phase 3.4 - Enhanced Testing & Documentation
