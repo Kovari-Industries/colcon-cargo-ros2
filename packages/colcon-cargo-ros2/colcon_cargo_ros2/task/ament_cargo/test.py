@@ -88,9 +88,7 @@ class AmentCargoTestTask(TaskExtensionPoint):
         rerun = 0
         completed = None
         while True:
-            completed = await run(
-                self.context, cmd, cwd=pkg_dir, env=env, capture_output=True
-            )
+            completed = await run(self.context, cmd, cwd=pkg_dir, env=env, capture_output=True)
 
             if not completed.returncode:
                 # Tests passed
