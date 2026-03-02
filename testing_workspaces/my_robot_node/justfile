@@ -2,16 +2,16 @@
 default:
     @just --list
 
-# Install ROS dependencies
+# Install ROS dependencies via rosdep
 install-deps:
     rosdep update
-    rosdep install --from-paths src --ignore-src -r -y
+    rosdep install --from-paths . --ignore-src -r -y
 
 # Build the workspace
 build:
     #!/usr/bin/env bash
     set -e
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
     # Source workspace if it exists (for incremental builds with dependencies)
     if [ -f install/setup.bash ]; then
         source install/setup.bash
@@ -21,7 +21,7 @@ build:
 # Clean build artifacts
 clean:
     rm -rf build install log
-    find src -type d -name target -exec rm -rf {} + 2>/dev/null || true
+    find . -type d -name target -exec rm -rf {} + 2>/dev/null || true
 
 # Run the node
 run:
@@ -32,4 +32,4 @@ run:
 
 # Show info
 info:
-    @colcon list --base-paths src
+    @colcon list

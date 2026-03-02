@@ -2,7 +2,7 @@
 default:
     @just --list
 
-# Install ROS dependencies
+# Install ROS dependencies via rosdep
 install-deps:
     rosdep update
     rosdep install --from-paths src --ignore-src -r -y
@@ -11,7 +11,7 @@ install-deps:
 build:
     #!/usr/bin/env bash
     set -e
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
     # Source workspace if it exists (for incremental builds with dependencies)
     if [ -f install/setup.bash ]; then
         source install/setup.bash

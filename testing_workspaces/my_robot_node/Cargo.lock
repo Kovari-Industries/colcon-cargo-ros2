@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "ament_rs"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b901da946b7b1620d44563e10c7634681af855a7f5fb59bd09b6eb801dcf6e49"
+dependencies = [
+ "itertools",
+ "walkdir",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,7 +180,7 @@ dependencies = [
 
 [[package]]
 name = "builtin_interfaces"
-version = "1.2.2"
+version = "1.2.1"
 dependencies = [
  "rosidl_runtime_rs",
 ]
@@ -201,6 +211,12 @@ name = "crossbeam-utils"
 version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+
+[[package]]
+name = "either"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "errno"
@@ -349,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "geometry_msgs"
-version = "4.9.0"
+version = "4.2.4"
 dependencies = [
  "rosidl_runtime_rs",
  "std_msgs",
@@ -386,6 +402,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "itertools"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -409,6 +434,16 @@ name = "libc"
 version = "0.2.177"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
+
+[[package]]
+name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
 
 [[package]]
 name = "linux-raw-sys"
@@ -515,15 +550,17 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rclrs"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b79c46ba8be755c1c0976a660ea0bb1cbd46724d25801fa11d23b0b73fe686e3"
+checksum = "62fcb68b31b17554f85f80aa807f9b4cd3b6abf201de78cb8fa9bc7ccf07e289"
 dependencies = [
+ "ament_rs",
  "async-std",
  "async-stream",
  "cfg-if",
  "futures",
  "futures-lite",
+ "libloading",
  "rosidl_runtime_rs",
  "rustflags",
  "tokio",
@@ -533,9 +570,9 @@ dependencies = [
 
 [[package]]
 name = "rosidl_runtime_rs"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b00ea2ee34606be89514fe2ba100b5fc6165e0f682824f1462f9b09105975566"
+checksum = "c2ff07e0a0795fd185dc92bcc5a90db39611c83397f17581cf80d8c0d8944dd6"
 dependencies = [
  "cfg-if",
 ]
@@ -566,6 +603,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,7 +619,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "std_msgs"
-version = "4.9.0"
+version = "4.2.4"
 dependencies = [
  "builtin_interfaces",
  "rosidl_runtime_rs",
@@ -632,6 +678,16 @@ name = "value-bag"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ba6f5989077681266825251a52748b8c1d8a4ad098cc37e440103d0ea717fc0"
+
+[[package]]
+name = "walkdir"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
+dependencies = [
+ "same-file",
+ "winapi-util",
+]
 
 [[package]]
 name = "wasip2"
@@ -711,6 +767,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "winapi-util"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+dependencies = [
+ "windows-sys",
+]
+
+[[package]]
 name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,279 +795,3 @@ name = "wit-bindgen"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
-
-[[patch.unused]]
-name = "action_msgs"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "action_tutorials_interfaces"
-version = "0.20.6"
-
-[[patch.unused]]
-name = "actionlib_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "actuator_msgs"
-version = "0.0.1"
-
-[[patch.unused]]
-name = "autoware_common_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_control_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_internal_debug_msgs"
-version = "1.12.0"
-
-[[patch.unused]]
-name = "autoware_map_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_perception_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_planning_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_sensing_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "autoware_vehicle_msgs"
-version = "1.9.0"
-
-[[patch.unused]]
-name = "bond"
-version = "4.1.2"
-
-[[patch.unused]]
-name = "can_msgs"
-version = "2.0.0"
-
-[[patch.unused]]
-name = "cob_srvs"
-version = "2.7.10"
-
-[[patch.unused]]
-name = "composition_interfaces"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "control_msgs"
-version = "4.8.0"
-
-[[patch.unused]]
-name = "data_tamer_msgs"
-version = "0.9.3"
-
-[[patch.unused]]
-name = "diagnostic_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "example_interfaces"
-version = "0.9.3"
-
-[[patch.unused]]
-name = "ffmpeg_image_transport_msgs"
-version = "1.1.2"
-
-[[patch.unused]]
-name = "geographic_msgs"
-version = "1.0.6"
-
-[[patch.unused]]
-name = "gps_msgs"
-version = "2.1.1"
-
-[[patch.unused]]
-name = "grid_map_msgs"
-version = "2.0.1"
-
-[[patch.unused]]
-name = "lifecycle_msgs"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "logging_demo"
-version = "0.20.6"
-
-[[patch.unused]]
-name = "map_msgs"
-version = "2.1.0"
-
-[[patch.unused]]
-name = "moveit_msgs"
-version = "2.2.1"
-
-[[patch.unused]]
-name = "nav2_msgs"
-version = "1.1.19"
-
-[[patch.unused]]
-name = "nav_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "nmea_msgs"
-version = "2.0.0"
-
-[[patch.unused]]
-name = "object_recognition_msgs"
-version = "2.0.0"
-
-[[patch.unused]]
-name = "octomap_msgs"
-version = "2.0.1"
-
-[[patch.unused]]
-name = "pacmod2_msgs"
-version = "1.0.0"
-
-[[patch.unused]]
-name = "pacmod3_msgs"
-version = "1.0.0"
-
-[[patch.unused]]
-name = "pcl_msgs"
-version = "1.0.0"
-
-[[patch.unused]]
-name = "pendulum_msgs"
-version = "0.20.6"
-
-[[patch.unused]]
-name = "plotjuggler_msgs"
-version = "0.2.3"
-
-[[patch.unused]]
-name = "point_cloud_interfaces"
-version = "1.0.12"
-
-[[patch.unused]]
-name = "radar_msgs"
-version = "0.2.1"
-
-[[patch.unused]]
-name = "rcl_interfaces"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "rmw_dds_common"
-version = "1.6.0"
-
-[[patch.unused]]
-name = "robot_localization"
-version = "3.5.4"
-
-[[patch.unused]]
-name = "ros_gz_interfaces"
-version = "0.244.20"
-
-[[patch.unused]]
-name = "ros_ign_interfaces"
-version = "0.244.20"
-
-[[patch.unused]]
-name = "rosapi_msgs"
-version = "2.0.1"
-
-[[patch.unused]]
-name = "rosbag2_interfaces"
-version = "0.15.15"
-
-[[patch.unused]]
-name = "rosbridge_msgs"
-version = "2.0.1"
-
-[[patch.unused]]
-name = "rosgraph_msgs"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "rtcm_msgs"
-version = "1.1.6"
-
-[[patch.unused]]
-name = "sensor_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "septentrio_gnss_driver"
-version = "1.4.5"
-
-[[patch.unused]]
-name = "shape_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "statistics_msgs"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "std_srvs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "stereo_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "test_msgs"
-version = "1.2.2"
-
-[[patch.unused]]
-name = "tf2_msgs"
-version = "0.25.16"
-
-[[patch.unused]]
-name = "theora_image_transport"
-version = "2.5.4"
-
-[[patch.unused]]
-name = "topic_tools_interfaces"
-version = "1.1.1"
-
-[[patch.unused]]
-name = "trajectory_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "turtlesim"
-version = "1.4.3"
-
-[[patch.unused]]
-name = "ublox_msgs"
-version = "2.3.0"
-
-[[patch.unused]]
-name = "udp_msgs"
-version = "0.0.5"
-
-[[patch.unused]]
-name = "unique_identifier_msgs"
-version = "2.2.1"
-
-[[patch.unused]]
-name = "velodyne_msgs"
-version = "2.5.1"
-
-[[patch.unused]]
-name = "vision_msgs"
-version = "4.1.1"
-
-[[patch.unused]]
-name = "visualization_msgs"
-version = "4.9.0"
-
-[[patch.unused]]
-name = "zed_msgs"
-version = "5.1.0"
