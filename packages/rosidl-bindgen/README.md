@@ -10,17 +10,22 @@ Rust binding generator for ROS 2 interface packages (.msg, .srv, .action files).
 
 Generated bindings depend on the following crates from crates.io:
 
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| `rosidl_runtime_rs` | `0.5` | Core runtime types (Message, Sequence, String) and traits |
-| `rclrs` | `0.6` | ROS 2 client library for Rust (for building nodes) |
+| Crate               | Version | Purpose                                                   |
+|---------------------|---------|-----------------------------------------------------------|
+| `rosidl_runtime_rs` | `0.6`   | Core runtime types (Message, Sequence, String) and traits |
+| `rclrs`             | `0.7`   | ROS 2 client library for Rust (for building nodes)        |
+
+### Version Override
+
+The default `rosidl_runtime_rs` version can be overridden via CLI:
+
+```bash
+colcon build --rosidl-runtime-rs-version 0.5
+```
 
 ### Version Compatibility
 
-Generated bindings are compatible with **rosidl_runtime_rs 0.5.x** API:
-- `Sequence::new()` returns `Self` (panics on failure)
-- No `capacity()` method or `SequenceError` type
-- Standard trait bounds on `Message` and `RmwMessage`
+Generated bindings are compatible with **rosidl_runtime_rs 0.6.x** API.
 
 ## Usage
 
@@ -56,7 +61,7 @@ For each ROS interface package (e.g., `std_msgs`), the generator creates:
 
 ```
 build/ros2_bindings/std_msgs/
-├── Cargo.toml              # Dependencies: rosidl_runtime_rs = "0.5"
+├── Cargo.toml              # Dependencies: rosidl_runtime_rs = "0.6"
 ├── build.rs                # Links against ROS C libraries
 ├── src/
 │   └── lib.rs             # Public API exports
@@ -73,7 +78,7 @@ build/ros2_bindings/std_msgs/
 
 ```toml
 [dependencies]
-rosidl_runtime_rs = "0.5"
+rosidl_runtime_rs = "0.6"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 # Cross-package dependencies (path-based, relative to build/ros2_bindings/)
@@ -98,8 +103,8 @@ To use generated bindings in a ROS node, add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rclrs = "0.6"
-rosidl_runtime_rs = "0.5"
+rclrs = "0.7"
+rosidl_runtime_rs = "0.6"
 
 # Generated bindings (path to build/ros2_bindings/)
 std_msgs = { path = "../../build/ros2_bindings/std_msgs" }
@@ -113,20 +118,23 @@ std_msgs = { path = "../../build/ros2_bindings/std_msgs" }
 - Self-contained but larger and slower
 
 **Current behavior**:
-- Generated bindings reference `rosidl_runtime_rs = "0.5"` from crates.io
+- Generated bindings reference `rosidl_runtime_rs = "0.6"` from crates.io
 - No embedded source code - smaller and faster generation
 - Standard Rust dependency management
 
 ## Version Updates
 
-To update supported versions, modify constants in `src/generator.rs`:
+To change the default rosidl_runtime_rs version, modify the constant in `src/generator.rs`:
 
 ```rust
-pub const ROSIDL_RUNTIME_RS_VERSION: &str = "0.5";
-pub const RCLRS_VERSION: &str = "0.6";
+pub const ROSIDL_RUNTIME_RS_VERSION: &str = "0.6";
 ```
 
-Then rebuild `rosidl-bindgen` and regenerate bindings.
+Users can also override the version at build time without modifying source:
+
+```bash
+colcon build --rosidl-runtime-rs-version 0.5
+```
 
 ## See Also
 

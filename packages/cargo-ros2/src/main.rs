@@ -82,6 +82,7 @@ fn main() -> Result<()> {
                 package_path,
                 output_dir: output,
                 verbose: verbose || args.verbose,
+                rosidl_runtime_rs_version: None,
             };
             cargo_ros2::generate_bindings(config)?;
             println!("✓ Bindings generated successfully");

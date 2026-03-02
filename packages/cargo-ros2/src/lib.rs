@@ -21,6 +21,7 @@
 //!     package_path: None,
 //!     output_dir: PathBuf::from("target/ros2_bindings"),
 //!     verbose: false,
+//!     rosidl_runtime_rs_version: None,
 //! };
 //!
 //! generate_bindings(config).expect("Failed to generate bindings");
@@ -47,6 +48,8 @@ pub struct BindgenConfig {
     pub output_dir: PathBuf,
     /// Enable verbose output
     pub verbose: bool,
+    /// Override rosidl_runtime_rs version in generated Cargo.toml (default: "0.6")
+    pub rosidl_runtime_rs_version: Option<String>,
 }
 
 /// Configuration for ament installation
@@ -89,6 +92,7 @@ pub struct InstallConfig {
 ///     package_path: None,
 ///     output_dir: PathBuf::from("target/ros2_bindings"),
 ///     verbose: true,
+///     rosidl_runtime_rs_version: None,
 /// };
 ///
 /// generate_bindings(config)?;
@@ -115,7 +119,11 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
     };
 
     // Generate bindings using rosidl-bindgen library
-    let result = generator::generate_package(&package, &config.output_dir)?;
+    let result = generator::generate_package(
+        &package,
+        &config.output_dir,
+        config.rosidl_runtime_rs_version.as_deref(),
+    )?;
 
     if config.verbose {
         eprintln!(

@@ -490,12 +490,16 @@ class WorkspaceBindingGenerator:
             verbose: Enable verbose output
         """
         try:
+            # Extract optional version override from colcon args
+            version = getattr(self.args, "rosidl_runtime_rs_version", None)
+
             # Create configuration for binding generation
             config = cargo_ros2_py.BindgenConfig(
                 package_name=pkg_name,
                 output_dir=str(output_dir),
                 package_path=str(pkg_share),
                 verbose=verbose,
+                rosidl_runtime_rs_version=version,
             )
 
             # Call Rust function directly (no subprocess!)

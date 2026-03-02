@@ -51,6 +51,12 @@ class AmentCargoBuildTask(TaskExtensionPoint):
             "Arguments matching other options must be prefixed by a space,\n"
             'e.g. --cargo-args " --help"',
         )
+        parser.add_argument(
+            "--rosidl-runtime-rs-version",
+            type=str,
+            default=None,
+            help="Override rosidl_runtime_rs version in generated bindings (default: 0.6)",
+        )
 
     async def build(self, *, additional_hooks=None):  # noqa: D102
         """Build the Rust ROS 2 package using workspace-level binding generation."""

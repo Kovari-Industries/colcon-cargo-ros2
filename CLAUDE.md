@@ -421,6 +421,31 @@ Ensures:
 
 ## Recent Architectural Improvements
 
+### Configurable rosidl_runtime_rs Version (2026-03-02)
+
+**Problem**: `ROSIDL_RUNTIME_RS_VERSION` was hardcoded to `"0.5"`, forcing downstream projects using rclrs 0.7 + rosidl_runtime_rs 0.6 to patch generated files after every colcon build.
+
+**Solution**:
+1. Bumped default from `"0.5"` to `"0.6"` in `ROSIDL_RUNTIME_RS_VERSION`
+2. Added `--rosidl-runtime-rs-version` CLI flag for override
+3. Removed unused `RCLRS_VERSION` constant
+
+**CLI usage**:
+```bash
+colcon build --rosidl-runtime-rs-version 0.5  # Override for older projects
+```
+
+**Files Modified**:
+- `packages/rosidl-bindgen/src/generator.rs`: Bump default, add version param to `generate_package()` and `generate_cargo_toml()`, remove `RCLRS_VERSION`
+- `packages/cargo-ros2/src/lib.rs`: Add `rosidl_runtime_rs_version` to `BindgenConfig`
+- `packages/colcon-cargo-ros2/src/lib.rs`: Add field to PyO3 `BindgenConfig`
+- `packages/colcon-cargo-ros2/colcon_cargo_ros2/task/ament_cargo/build.py`: Add CLI argument
+- `packages/colcon-cargo-ros2/colcon_cargo_ros2/workspace_bindgen.py`: Pass version to `BindgenConfig`
+- `packages/rosidl-bindgen/README.md`: Updated version references and documented override
+- Testing workspace Cargo.toml files: Updated to `rosidl_runtime_rs = "0.6"`
+
+---
+
 ### Capitalized Boolean Literals Support (2025-11-18)
 
 **Problem**: Parser failed on ROS 2 action files using capitalized boolean literals (`True`/`False`):

@@ -71,16 +71,11 @@ struct ActionRsTemplate {
     actions: Vec<InterfaceInfo>,
 }
 
-/// Supported rosidl_runtime_rs version on crates.io
+/// Default rosidl_runtime_rs version for generated bindings.
 ///
 /// Generated bindings depend on this version from crates.io.
-/// Users must ensure this version is available in their Cargo dependencies.
-pub const ROSIDL_RUNTIME_RS_VERSION: &str = "0.5";
-
-/// Supported rclrs version on crates.io
-///
-/// For building ROS 2 nodes, users should depend on this version from crates.io.
-pub const RCLRS_VERSION: &str = "0.6";
+/// Can be overridden via `--rosidl-runtime-rs-version` CLI flag.
+pub const ROSIDL_RUNTIME_RS_VERSION: &str = "0.6";
 
 /// Generated Rust package structure.
 ///
@@ -102,7 +97,14 @@ pub struct GeneratedRustPackage {
 }
 
 /// Generate Rust bindings for a ROS 2 package
-pub fn generate_package(package: &Package, output_dir: &Path) -> Result<GeneratedRustPackage> {
+///
+/// If `rosidl_runtime_rs_version` is `Some`, it overrides the default version
+/// used in the generated Cargo.toml dependency on `rosidl_runtime_rs`.
+pub fn generate_package(
+    package: &Package,
+    output_dir: &Path,
+    rosidl_runtime_rs_version: Option<&str>,
+) -> Result<GeneratedRustPackage> {
     let package_output = output_dir.join(&package.name);
     std::fs::create_dir_all(&package_output).wrap_err_with(|| {
         format!(
@@ -412,6 +414,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
         &package.version,
         &all_dependencies,
         package_needs_big_array,
+        rosidl_runtime_rs_version,
     )?;
 
     // Generate build.rs for FFI linking
@@ -661,7 +664,9 @@ fn generate_cargo_toml(
     package_version: &str,
     dependencies: &HashSet<String>,
     needs_big_array: bool,
+    rosidl_runtime_rs_version: Option<&str>,
 ) -> Result<()> {
+    let version = rosidl_runtime_rs_version.unwrap_or(ROSIDL_RUNTIME_RS_VERSION);
     let mut cargo_toml = format!(
         r#"[package]
 name = "{}"
@@ -676,7 +681,7 @@ edition = "2021"
 rosidl_runtime_rs = "{}"
 serde = {{ version = "1.0", features = ["derive"], optional = true }}
 "#,
-        package_name, package_version, ROSIDL_RUNTIME_RS_VERSION
+        package_name, package_version, version
     );
 
     // Add serde-big-array if needed for arrays > 32 elements
@@ -811,7 +816,7 @@ mod tests {
         let package = create_test_package(temp_dir.path());
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, None);
         assert!(result.is_ok());
 
         let generated = result.unwrap();
@@ -848,11 +853,12 @@ mod tests {
     fn test_cargo_toml_generation() {
         let temp_dir = tempfile::tempdir().unwrap();
         let deps = HashSet::new();
-        generate_cargo_toml(temp_dir.path(), "test_pkg", "0.1.0", &deps, false).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "0.1.0", &deps, false, None).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
         assert!(cargo_toml.contains("version = \"0.1.0\""));
+        assert!(cargo_toml.contains("rosidl_runtime_rs = \"0.6\""));
         assert!(cargo_toml.contains("serde"));
         assert!(!cargo_toml.contains("serde-big-array"));
     }
@@ -864,7 +870,7 @@ mod tests {
         deps.insert("std_msgs".to_string());
         deps.insert("geometry_msgs".to_string());
 
-        generate_cargo_toml(temp_dir.path(), "test_pkg", "1.2.3", &deps, false).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "1.2.3", &deps, false, None).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
@@ -878,7 +884,7 @@ mod tests {
     fn test_cargo_toml_with_big_array() {
         let temp_dir = tempfile::tempdir().unwrap();
         let deps = HashSet::new();
-        generate_cargo_toml(temp_dir.path(), "test_pkg", "2.0.0", &deps, true).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "2.0.0", &deps, true, None).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
@@ -908,7 +914,7 @@ mod tests {
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, None);
         assert!(result.is_err());
     }
 
@@ -935,7 +941,7 @@ mod tests {
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, None);
         assert!(result.is_ok());
 
         // Check that generated Cargo.toml has correct version
@@ -944,8 +950,9 @@ mod tests {
         assert!(cargo_toml.contains("name = \"versioned_msgs\""));
         assert!(cargo_toml.contains("version = \"4.5.6\""));
         // Should NOT contain the hardcoded ROSIDL_RUNTIME_RS_VERSION as the package version
-        assert!(!cargo_toml.contains("version = \"0.5.0\""));
-        assert!(!cargo_toml.contains("version = \"0.5\""));
+        assert!(!cargo_toml.contains("version = \"0.6.0\""));
+        // The rosidl_runtime_rs dep version should be 0.6 (default)
+        assert!(cargo_toml.contains("rosidl_runtime_rs = \"0.6\""));
     }
 
     #[test]
@@ -961,7 +968,7 @@ mod tests {
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, None);
         assert!(result.is_ok());
 
         // Check that generated Cargo.toml defaults to 0.0.0
