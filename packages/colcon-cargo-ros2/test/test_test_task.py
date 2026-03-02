@@ -26,16 +26,13 @@ class TestBuildTestCmd:
 
     def test_basic_cmd_generation(self):
         """Test basic command generation with defaults."""
-        workspace_root = Path("/workspace")
-        build_base = Path("/workspace/build")
         target_dir = "/workspace/build/my_package"
 
-        cmd = self.task._build_test_cmd(workspace_root, build_base, target_dir, [], [])
+        cmd = self.task._build_test_cmd(target_dir, [], [])
 
         assert cmd[0] == "cargo"
         assert cmd[1] == "test"
         assert "--manifest-path" in cmd
-        assert "/workspace/src/my_package/Cargo.toml" in cmd
         assert "--target-dir" in cmd
         assert target_dir in cmd
         assert "--quiet" in cmd
@@ -43,36 +40,14 @@ class TestBuildTestCmd:
         assert "--color" in cmd
         assert "never" in cmd
 
-    def test_config_file_included_when_exists(self):
-        """Test that --config is included when ros2_cargo_config.toml exists."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            build_base = Path(tmpdir)
-            config_file = build_base / "ros2_cargo_config.toml"
-            config_file.write_text("[patch]\n")
-            target_dir = str(build_base / "my_package")
-
-            cmd = self.task._build_test_cmd(Path("/workspace"), build_base, target_dir, [], [])
-
-            assert "--config" in cmd
-            config_idx = cmd.index("--config")
-            assert str(config_file) == cmd[config_idx + 1]
-
-    def test_config_file_not_included_when_missing(self):
-        """Test that --config is not included when config file doesn't exist."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            build_base = Path(tmpdir)
-            target_dir = str(build_base / "my_package")
-            # Don't create the config file
-
-            cmd = self.task._build_test_cmd(Path("/workspace"), build_base, target_dir, [], [])
-
-            assert "--config" not in cmd
+    def test_no_config_flag(self):
+        """Test that --config is not used (config comes from .cargo/config.toml)."""
+        cmd = self.task._build_test_cmd("/workspace/build/pkg", [], [])
+        assert "--config" not in cmd
 
     def test_cargo_args_passed_through(self):
         """Test that cargo args are passed through."""
         cmd = self.task._build_test_cmd(
-            Path("/workspace"),
-            Path("/workspace/build"),
             "/workspace/build/pkg",
             ["--release", "--features", "test"],
             [],
@@ -85,8 +60,6 @@ class TestBuildTestCmd:
     def test_test_args_after_separator(self):
         """Test that test args come after --."""
         cmd = self.task._build_test_cmd(
-            Path("/workspace"),
-            Path("/workspace/build"),
             "/workspace/build/pkg",
             [],
             ["--nocapture", "--test-threads=1"],
@@ -100,17 +73,13 @@ class TestBuildTestCmd:
         """Test that --quiet is not added in verbose mode."""
         self.task.context.args.verbose = True
 
-        cmd = self.task._build_test_cmd(
-            Path("/workspace"), Path("/workspace/build"), "/workspace/build/pkg", [], []
-        )
+        cmd = self.task._build_test_cmd("/workspace/build/pkg", [], [])
 
         assert "--quiet" not in cmd
 
     def test_quiet_suppressed_when_verbose_in_cargo_args(self):
         """Test that --quiet is not added when --verbose in cargo args."""
         cmd = self.task._build_test_cmd(
-            Path("/workspace"),
-            Path("/workspace/build"),
             "/workspace/build/pkg",
             ["--verbose"],
             [],
@@ -121,8 +90,6 @@ class TestBuildTestCmd:
     def test_quiet_not_duplicated(self):
         """Test that --quiet is not added when already in cargo args."""
         cmd = self.task._build_test_cmd(
-            Path("/workspace"),
-            Path("/workspace/build"),
             "/workspace/build/pkg",
             ["--quiet"],
             [],

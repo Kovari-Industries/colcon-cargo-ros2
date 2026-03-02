@@ -6,8 +6,10 @@ on:
     branches: ['main']
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  # Rust CI
   rust-test:
     name: Rust Tests
     runs-on: ubuntu-latest
@@ -19,42 +21,57 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Cache cargo registry
+      - name: Install nightly toolchain (for rustfmt)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/Cargo.lock') }}
 
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      - name: Check formatting
+        working-directory: packages
+        run: cargo +nightly fmt --all -- --check
 
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run clippy
+        working-directory: packages
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-
-      - name: Run cargo clippy
-        run: cargo clippy --workspace -- -D warnings
-
-      - name: Run cargo test
+      - name: Run tests
+        working-directory: packages
         run: cargo test --workspace
 
-      - name: Run cargo build
-        run: cargo build --workspace --profile dev-release
-
-  # Python CI
   python-test:
     name: Python Tests
-    uses: colcon/ci/.github/workflows/pytest.yaml@main
-    with:
-      matrix-filter: del(.matrix.include[] | select(.os == "ubuntu-20.04"))
-      package-root: colcon-cargo-ros2
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build and install wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist
+          sccache: 'true'
+          working-directory: packages/colcon-cargo-ros2
+
+      - name: Install wheel and test dependencies
+        run: |
+          pip install packages/colcon-cargo-ros2/dist/*.whl
+          pip install pytest ruff colcon-core colcon-library-path colcon-ros
+
+      - name: Run ruff lint
+        working-directory: packages/colcon-cargo-ros2
+        run: ruff check colcon_cargo_ros2/ test/
+
+      - name: Run pytest
+        run: pytest packages/colcon-cargo-ros2/test/ -v

@@ -137,16 +137,18 @@ just install         # Install updated wheel
 
 #### Testing Workspaces
 
-**IMPORTANT**: Always use `just clean && just build` in testing workspaces if a justfile exists:
+**IMPORTANT**: Always use `just clean && just build` in testing workspaces:
 
 ```bash
-# Testing workspaces with justfiles (all 4 have them):
+# Testing workspaces with justfiles:
 # - testing_workspaces/my_robot_node/
-# - testing_workspaces/autoware_msgs_test/
 # - testing_workspaces/complex_workspace/
 # - testing_workspaces/ros2_rust_examples/
 
-cd testing_workspaces/my_robot_node
+# Install ROS dependencies first (one-time)
+just install-deps
+
+# Build
 just clean && just build
 
 # ❌ NEVER use: rm -rf build install && colcon build
@@ -155,6 +157,7 @@ just clean && just build
 
 **Rationale**:
 - Justfiles provide consistent build commands across all testing workspaces
+- `install-deps` runs `rosdep install` to pull required ROS packages
 - They handle proper cleanup and environment setup
 - They abstract away colcon-specific details
 - They make build commands shorter and easier to remember
@@ -421,6 +424,30 @@ Ensures:
 
 ## Recent Architectural Improvements
 
+### Consolidated `.cargo/config.toml` (2026-03-02)
+
+**Problem**: Two config files were generated — `build/ros2_cargo_config.toml` (patches + rustflags, passed via `--config`) and per-crate `.cargo/config.toml` (patches only, for IDEs). This was redundant.
+
+**Solution**: Consolidated everything into a single `.cargo/config.toml` per Cargo workspace/crate containing both `[patch.crates-io]` and `[build] rustflags`. Removed `build/ros2_cargo_config.toml` and the `--config` flag.
+
+**Design**:
+- Per-Cargo-workspace placement (walks up from crate to find `[workspace]` in `Cargo.toml`)
+- Two marker systems: patches (`# BEGIN/END colcon-cargo-ros2`) and build flags (`# BEGIN/END colcon-cargo-ros2 build flags`)
+- Patch paths are relative; rustflags use absolute paths (required by Cargo)
+- Comment-based markers preserve user content in existing configs
+- Automatic during `colcon build` (no separate command)
+
+**Files Modified**:
+- `packages/colcon-cargo-ros2/colcon_cargo_ros2/workspace_bindgen.py`: Removed `_write_cargo_config_file()`, added `_compute_rustflags()`, `_generate_build_marker_block()`, `_merge_build_into_config()`, renamed `_write_ide_cargo_configs()` → `_write_cargo_configs()`
+- `packages/colcon-cargo-ros2/colcon_cargo_ros2/task/ament_cargo/build.py`: Removed `--config` flag
+- `packages/colcon-cargo-ros2/colcon_cargo_ros2/task/ament_cargo/test.py`: Removed `--config` flag
+- `packages/colcon-cargo-ros2/test/test_ide_config.py`: Added `TestComputeRustflags`, `TestGenerateBuildMarkerBlock`, `TestMergeBuildIntoConfig`
+- `packages/colcon-cargo-ros2/test/test_test_task.py`: Replaced `--config` tests with `test_no_config_flag`
+
+**Testing workspaces updated**: All testing workspaces now use rclrs 0.7 (matching rosidl_runtime_rs 0.6). Added justfiles with `install-deps` recipes for rosdep.
+
+---
+
 ### Configurable rosidl_runtime_rs Version (2026-03-02)
 
 **Problem**: `ROSIDL_RUNTIME_RS_VERSION` was hardcoded to `"0.5"`, forcing downstream projects using rclrs 0.7 + rosidl_runtime_rs 0.6 to patch generated files after every colcon build.
@@ -608,7 +635,7 @@ rust-lld: error: unable to find library -lsplat_msgs__rosidl_typesupport_c
 
 **Root Cause**: Cargo `build.rs` linker search paths (`cargo:rustc-link-search`) don't propagate to downstream binaries.
 
-**Solution**: Added `[build]` rustflags to `ros2_cargo_config.toml`:
+**Solution**: Added `[build]` rustflags to `.cargo/config.toml`:
 ```toml
 [build]
 rustflags = [
@@ -691,8 +718,8 @@ build/ros2_bindings/sensor_msgs/       # Shared by all packages
 - `colcon-cargo-ros2` discovers ROS dependencies from `package.xml` **ONLY**
 - Users must declare ROS interface dependencies in `<depend>` tags in package.xml
 - Generates bindings to `build/ros2_bindings/<package>/` (workspace-level)
-- Bindings are made available to Cargo through environment variables during build
-- **No `.cargo/config.toml` patches generated** - colcon-cargo-ros2 handles everything
+- Generates `.cargo/config.toml` with `[patch.crates-io]` + `[build] rustflags` in each Cargo workspace/crate
+- Build uses plain `cargo build` (config picked up automatically from `.cargo/config.toml`)
 
 **Important**: ROS dependencies MUST be declared in package.xml, not just Cargo.toml:
 ```xml
@@ -790,16 +817,17 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 ## Status
 
 **Version**: v0.3.3 (2026-03-02)
-**Progress**: 15/20 subphases (75%) | 233 tests passing (211 Rust + 22 Python) | Zero warnings
-**Latest**: Configurable rosidl_runtime_rs version (default 0.6, `--rosidl-runtime-rs-version` override) ✅
+**Progress**: 16/20 subphases (80%) | 265 tests passing (211 Rust + 54 Python) | Zero warnings
+**Latest**: Consolidated `.cargo/config.toml` — patches + rustflags in one file, no `--config` flag ✅
 **Testing**: Validated with:
 - autoware_carla_bridge (118 packages) ✅
-- splat-drive workspace (6 packages + custom interfaces) ✅
+- cuda_ndt_matcher (16 Autoware + standard packages) ✅
 - complex_workspace (50+ message types from 17 packages) ✅
 
 **Versions**:
 - Rust workspace: v0.2.0 (rosidl-parser, rosidl-codegen, rosidl-bindgen, cargo-ros2)
 - Python package: v0.3.3 (colcon-cargo-ros2)
+- Target: rclrs 0.7 + rosidl_runtime_rs 0.6
 - Author: Lin Hsiang-Jui <jerry73204@gmail.com>
 
 **PyPI**: 31 artifacts for Linux/macOS/Windows × Python 3.8-3.13
@@ -807,6 +835,7 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 **Architecture**:
 - Two independent workspaces (user-libs + packages)
 - Workspace-level binding generation via colcon's package discovery
+- Single `.cargo/config.toml` per Cargo workspace/crate (patches + rustflags, no `--config` needed)
 - Rustflags-based linker search paths for workspace libraries
 - Complete ament layout installation
 - Package versions extracted from package.xml
@@ -817,6 +846,7 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 - **Motion planning**: moveit_msgs with nested dependencies
 - **Control**: control_msgs, diagnostic_msgs, action_msgs
 - **Custom interfaces**: Messages, services, actions with full type support
+- **Autoware**: autoware_internal_debug_msgs, autoware_map_msgs, tier4_localization_msgs
 
 **Key Features**:
 - ✅ Capitalized boolean literals (`True`/`False`)
@@ -827,5 +857,6 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 - ✅ `--cargo-args` pass-through
 - ✅ Version management with `just bump-version`
 - ✅ Configurable `rosidl_runtime_rs` version (default 0.6, `--rosidl-runtime-rs-version` CLI override)
+- ✅ IDE support via `.cargo/config.toml` generation (Phase 6)
 
 **Next**: Phase 3.4 - Enhanced Testing & Documentation

@@ -59,7 +59,7 @@ pub struct InstallConfig {
     pub project_root: PathBuf,
     /// Install base directory (install/<package>/)
     pub install_base: PathBuf,
-    /// Workspace build directory (where ros2_cargo_config.toml is located)
+    /// Workspace build directory
     pub build_base: PathBuf,
     /// Build profile: "debug" or "release"
     pub profile: String,
@@ -179,24 +179,8 @@ pub fn install_to_ament(config: InstallConfig) -> Result<()> {
     env::set_current_dir(&config.project_root)?;
 
     // Read package metadata
-    // Pass --config flag to use workspace-level config
-    let mut metadata_cmd = MetadataCommand::new();
-
-    // Use build_base provided by colcon to locate config file
-    // This path is authoritative and comes from colcon's own workspace structure
-    let config_file = config.build_base.join("ros2_cargo_config.toml");
-
-    if config.verbose {
-        eprintln!("Using config file: {}", config_file.display());
-    }
-
-    // Always add --config flag (config file should exist from binding generation)
-    metadata_cmd.other_options(vec![
-        "--config".to_string(),
-        config_file.display().to_string(),
-    ]);
-
-    let metadata = metadata_cmd
+    // Patches and rustflags are picked up from .cargo/config.toml automatically
+    let metadata = MetadataCommand::new()
         .exec()
         .wrap_err("Failed to read Cargo metadata")?;
 

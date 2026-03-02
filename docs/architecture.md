@@ -184,7 +184,7 @@ cargo-ros2/
 │       ├── build.rs          # Phase 2: Cargo build
 │       ├── install.rs        # Phase 3: Ament install
 │       ├── discover.rs       # ROS dependency discovery
-│       └── patch.rs          # .cargo/config.toml management
+│       └── patch.rs          # Cargo config management
 │
 └── rosidl-runtime-rs/        # Runtime library (fork)
     └── src/
@@ -216,15 +216,14 @@ User runs: cargo ros2 ament-build --install-base install/my_pkg
 
     ↓
 
-3. Patch .cargo/config.toml
-   [patch.crates-io]
-   std_msgs = { path = "target/ros2_bindings/std_msgs" }
-   sensor_msgs = { path = "target/ros2_bindings/sensor_msgs" }
+3. Create .cargo/config.toml
+   Per Cargo workspace/crate with [patch.crates-io] + [build] rustflags
+   (enables cargo build, cargo check, and IDE support without extra flags)
 
     ↓
 
 4. Build
-   cargo build (or check for pure libs)
+   cargo build (patches + rustflags picked up from .cargo/config.toml)
 
     ↓
 
@@ -285,7 +284,7 @@ serde_json = "1.0"  # For parsing ament_index data
 anyhow = "1.0"
 clap = "4.0"
 cargo-manifest = "0.17"  # Parse Cargo.toml
-toml = "0.8"             # Write .cargo/config.toml
+toml = "0.8"             # Write Cargo config files
 serde = "1.0"
 serde_json = "1.0"
 sha2 = "0.10"            # Caching

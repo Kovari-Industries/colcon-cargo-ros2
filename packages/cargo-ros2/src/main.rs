@@ -51,7 +51,7 @@ enum Ros2Command {
         #[arg(long)]
         install_base: PathBuf,
 
-        /// Workspace build directory (where ros2_cargo_config.toml is located)
+        /// Workspace build directory
         #[arg(long)]
         build_base: Option<PathBuf>,
 

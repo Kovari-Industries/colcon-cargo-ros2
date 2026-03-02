@@ -9,9 +9,8 @@ this module generates ALL bindings once before any packages are built.
 Architecture:
 1. Discover all ROS package dependencies in the workspace
 2. Generate all bindings to build/<pkg>/rosidl_cargo/
-3. Write single Cargo config file in build/ros2_cargo_config.toml
-4. Individual packages run `cargo build --config build/ros2_cargo_config.toml`
-5. Generate per-crate .cargo/config.toml for IDE support (Phase 6)
+3. Generate per-crate .cargo/config.toml with [patch.crates-io] and [build] rustflags
+4. Individual packages run plain `cargo build` (no --config needed)
 """
 
 import os
@@ -84,7 +83,7 @@ class WorkspaceBindingGenerator:
         This is the main entry point that:
         1. Discovers all ROS dependencies
         2. Generates bindings for all packages
-        3. Writes single Cargo config file in build/
+        3. Writes per-crate .cargo/config.toml with patches and build flags
         """
         logger.info("Starting workspace-level binding generation")
 
@@ -98,11 +97,8 @@ class WorkspaceBindingGenerator:
         # Step 2: Generate bindings for all discovered packages
         self._generate_bindings(ros_packages, verbose)
 
-        # Step 3: Write single Cargo config file in build/ directory
-        self._write_cargo_config_file(ros_packages)
-
-        # Step 4: Generate per-crate .cargo/config.toml for IDE support
-        self._write_ide_cargo_configs(ros_packages)
+        # Step 3: Write .cargo/config.toml with patches + build flags
+        self._write_cargo_configs(ros_packages)
 
         logger.info("Workspace-level binding generation complete")
 
@@ -591,81 +587,19 @@ class WorkspaceBindingGenerator:
         cargo_toml.write_text("\n".join(new_lines))
         logger.debug(f"Fixed up generated Cargo.toml for {pkg_name}")
 
-    def _write_cargo_config_file(self, ros_packages: Dict[str, Path]):
-        """Write single Cargo config file in build/ directory with relative paths.
-
-        This config file will be passed to cargo via --config flag.
-        Paths are relative to the workspace root for portability.
-
-        Args:
-            ros_packages: Dict of all ROS packages (for building patch entries)
-        """
-        config_file = self.build_base / "ros2_cargo_config.toml"
-
-        # Build [patch.crates-io] section
-        patches = []
-
-        for pkg_name in sorted(ros_packages.keys()):
-            # Check per-package location: build/<pkg_name>/rosidl_cargo/
-            pkg_build_dir = self.build_base / pkg_name / "rosidl_cargo"
-
-            if pkg_build_dir.exists():
-                # rosidl-bindgen creates nested structure: <pkg_name>/<pkg_name>/Cargo.toml
-                nested_pkg_dir = pkg_build_dir / pkg_name
-                if nested_pkg_dir.exists() and (nested_pkg_dir / "Cargo.toml").exists():
-                    # Use relative path from workspace root for portability
-                    rel_path = nested_pkg_dir.relative_to(self.workspace_root)
-                    patches.append(f'{pkg_name} = {{ path = "{rel_path}" }}')
-                elif (pkg_build_dir / "Cargo.toml").exists():
-                    # Use the top-level directory if Cargo.toml is there
-                    rel_path = pkg_build_dir.relative_to(self.workspace_root)
-                    patches.append(f'{pkg_name} = {{ path = "{rel_path}" }}')
-
-        # Build [build] section with rustflags for linker search paths
-        # This is critical for finding workspace-local ROS package libraries
-        rustflags = []
-
-        # Add workspace install directory lib paths
-        if self.install_base.exists():
-            for pkg_install in self.install_base.iterdir():
-                if not pkg_install.is_dir():
-                    continue
-                lib_dir = pkg_install / "lib"
-                if lib_dir.exists():
-                    rustflags.append(f'"-L", "native={lib_dir.absolute()}"')
-
-        # Add system ROS library paths from AMENT_PREFIX_PATH
-        if "AMENT_PREFIX_PATH" in os.environ:
-            for prefix in os.environ["AMENT_PREFIX_PATH"].split(":"):
-                lib_path = Path(prefix) / "lib"
-                if lib_path.exists():
-                    rustflags.append(f'"-L", "native={lib_path.absolute()}"')
-
-        # Write config.toml
-        content = "[patch.crates-io]\n"
-        content += "\n".join(patches)
-        content += "\n"
-
-        if rustflags:
-            content += "\n[build]\n"
-            content += "rustflags = [\n"
-            content += ",\n".join(f"    {flag}" for flag in rustflags)
-            content += "\n]\n"
-
-        config_file.write_text(content)
-        logger.info(f"Wrote Cargo config with {len(patches)} patches to {config_file}")
-
     # -------------------------------------------------------------------------
-    # Phase 6: IDE support — per-crate .cargo/config.toml generation
+    # Per-crate .cargo/config.toml generation (patches + build flags)
     # -------------------------------------------------------------------------
 
-    # Marker comments delimiting the auto-generated region
+    # Marker comments delimiting the auto-generated patch region
     _MARKER_BEGIN = "# BEGIN colcon-cargo-ros2 generated patches"
     _MARKER_END = "# END colcon-cargo-ros2"
 
-    def _detect_cargo_workspace_root(
-        self, crate_path: Path, colcon_ws_root: Path
-    ) -> Path:
+    # Marker comments delimiting the auto-generated build flags region
+    _MARKER_BUILD_BEGIN = "# BEGIN colcon-cargo-ros2 generated build flags"
+    _MARKER_BUILD_END = "# END colcon-cargo-ros2 build flags"
+
+    def _detect_cargo_workspace_root(self, crate_path: Path, colcon_ws_root: Path) -> Path:
         """Find the Cargo workspace root for a given crate.
 
         Walks up from *crate_path* toward *colcon_ws_root* looking for a
@@ -746,9 +680,7 @@ class WorkspaceBindingGenerator:
         return binding_dirs
 
     @staticmethod
-    def _compute_relative_patches(
-        config_target: Path, binding_dirs: Dict[str, Path]
-    ) -> List[str]:
+    def _compute_relative_patches(config_target: Path, binding_dirs: Dict[str, Path]) -> List[str]:
         """Compute ``[patch.crates-io]`` entries with paths relative to *config_target*.
 
         Args:
@@ -842,12 +774,123 @@ class WorkspaceBindingGenerator:
         content += f"\n[patch.crates-io]\n{marker_block}\n"
         return content
 
-    def _write_ide_cargo_configs(self, ros_packages: Dict[str, Path]):
+    def _compute_rustflags(self) -> List[str]:
+        """Compute ``-L native=<path>`` linker search flags.
+
+        Collects library directories from:
+        1. Workspace install directory (per-package lib/ dirs)
+        2. System ROS library paths from ``AMENT_PREFIX_PATH``
+
+        Returns absolute paths (required because Cargo resolves rustflags
+        relative to CWD, not the config file location).
+        """
+        rustflags: List[str] = []
+
+        # Add workspace install directory lib paths
+        if self.install_base.exists():
+            for pkg_install in sorted(self.install_base.iterdir()):
+                if not pkg_install.is_dir():
+                    continue
+                lib_dir = pkg_install / "lib"
+                if lib_dir.exists():
+                    rustflags.append(f'"-L", "native={lib_dir.absolute()}"')
+
+        # Add system ROS library paths from AMENT_PREFIX_PATH
+        if "AMENT_PREFIX_PATH" in os.environ:
+            for prefix in os.environ["AMENT_PREFIX_PATH"].split(":"):
+                lib_path = Path(prefix) / "lib"
+                if lib_path.exists():
+                    rustflags.append(f'"-L", "native={lib_path.absolute()}"')
+
+        return rustflags
+
+    @classmethod
+    def _generate_build_marker_block(cls, rustflags: List[str]) -> str:
+        """Produce the ``[build]`` marker block with rustflags.
+
+        The block does **not** include a ``[build]`` header — the
+        merge logic handles placement within an existing or new section.
+        """
+        lines = [
+            cls._MARKER_BUILD_BEGIN,
+            "# Auto-generated by colcon build. Do not edit between markers.",
+            "# Re-run `colcon build` to regenerate.",
+        ]
+        if rustflags:
+            lines.append("rustflags = [")
+            for i, flag in enumerate(rustflags):
+                comma = "," if i < len(rustflags) - 1 else ""
+                lines.append(f"    {flag}{comma}")
+            lines.append("]")
+        else:
+            lines.append("rustflags = []")
+        lines.append(cls._MARKER_BUILD_END)
+        return "\n".join(lines)
+
+    @classmethod
+    def _merge_build_into_config(cls, existing_content: str, build_marker_block: str) -> str:
+        """Merge *build_marker_block* into *existing_content* for the ``[build]`` section.
+
+        Handles three cases:
+        1. Build markers already present → replace content between them.
+        2. ``[build]`` section exists but no markers → append block
+           before the next section header.
+        3. No ``[build]`` section → append new ``[build]`` section at end.
+
+        Args:
+            existing_content: Current file content (must not be empty/None).
+            build_marker_block: The marker block to merge.
+
+        Returns the full file content to be written.
+        """
+        lines = existing_content.splitlines()
+
+        # --- Case 1: build markers already present ---
+        begin_idx: Optional[int] = None
+        end_idx: Optional[int] = None
+        for i, line in enumerate(lines):
+            if line.strip() == cls._MARKER_BUILD_BEGIN:
+                begin_idx = i
+            elif line.strip() == cls._MARKER_BUILD_END and begin_idx is not None:
+                end_idx = i
+                break
+
+        if begin_idx is not None and end_idx is not None:
+            new_lines = lines[:begin_idx] + build_marker_block.splitlines() + lines[end_idx + 1 :]
+            return "\n".join(new_lines) + "\n"
+
+        # --- Case 2: [build] section exists but no markers ---
+        build_header_re = re.compile(r"^\[build\]$")
+        next_section_re = re.compile(r"^\[(?!build\])")
+
+        build_header_idx: Optional[int] = None
+        for i, line in enumerate(lines):
+            if build_header_re.match(line.strip()):
+                build_header_idx = i
+                break
+
+        if build_header_idx is not None:
+            # Find the end of the [build] section
+            insert_idx = len(lines)  # default: end of file
+            for i in range(build_header_idx + 1, len(lines)):
+                if next_section_re.match(lines[i].strip()):
+                    insert_idx = i
+                    break
+
+            new_lines = lines[:insert_idx] + [build_marker_block] + lines[insert_idx:]
+            return "\n".join(new_lines) + "\n"
+
+        # --- Case 3: no [build] section at all ---
+        content = existing_content.rstrip("\n") + "\n"
+        content += f"\n[build]\n{build_marker_block}\n"
+        return content
+
+    def _write_cargo_configs(self, ros_packages: Dict[str, Path]):
         """Generate ``.cargo/config.toml`` for each Cargo workspace / standalone crate.
 
-        Called after ``_write_cargo_config_file()`` during ``generate_all_bindings()``.
-        Only writes ``[patch.crates-io]`` entries (no ``[build]`` section) because
-        IDEs only need dependency resolution, not linker flags.
+        Writes both ``[patch.crates-io]`` entries (for dependency resolution) and
+        ``[build]`` rustflags (for linker search paths). This is the single config
+        used by both ``cargo build`` and IDEs.
         """
         binding_dirs = self._collect_binding_dirs(ros_packages)
         if not binding_dirs:
@@ -857,6 +900,7 @@ class WorkspaceBindingGenerator:
         if not targets:
             return
 
+        rustflags = self._compute_rustflags()
         generated_count = 0
 
         for config_target, crate_paths in targets.items():
@@ -864,7 +908,8 @@ class WorkspaceBindingGenerator:
             if not patches:
                 continue
 
-            marker_block = self._generate_marker_block(patches)
+            patch_marker_block = self._generate_marker_block(patches)
+            build_marker_block = self._generate_build_marker_block(rustflags)
 
             config_dir = config_target / ".cargo"
             config_file = config_dir / "config.toml"
@@ -874,7 +919,9 @@ class WorkspaceBindingGenerator:
             if config_file.exists():
                 existing_content = config_file.read_text()
 
-            new_content = self._merge_into_config(existing_content, marker_block)
+            # Merge patches first, then build flags
+            new_content = self._merge_into_config(existing_content, patch_marker_block)
+            new_content = self._merge_build_into_config(new_content, build_marker_block)
 
             # Write the file
             config_dir.mkdir(parents=True, exist_ok=True)
@@ -883,13 +930,14 @@ class WorkspaceBindingGenerator:
 
             crate_names = [p.name for p in crate_paths]
             logger.info(
-                f"Wrote IDE config with {len(patches)} patches to {config_file} "
+                f"Wrote .cargo/config.toml with {len(patches)} patches "
+                f"and {len(rustflags)} rustflags to {config_file} "
                 f"(crates: {', '.join(crate_names)})"
             )
 
         if generated_count > 0:
             logger.info(
-                f"Generated {generated_count} .cargo/config.toml file(s) for IDE support. "
+                f"Generated {generated_count} .cargo/config.toml file(s). "
                 "Consider adding .cargo/config.toml to .gitignore (paths are machine-specific)."
             )
 

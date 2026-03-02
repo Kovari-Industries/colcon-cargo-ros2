@@ -55,7 +55,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rclrs = "0.6"
+rclrs = "0.7"
 std_msgs = "*"
 geometry_msgs = "*"
 ```
@@ -124,10 +124,11 @@ colcon build --symlink-install
 ```
 
 The extension will:
-1. Discover ROS dependencies from `Cargo.toml` and `package.xml`
+1. Discover ROS interface dependencies from `package.xml` `<depend>` tags
 2. Generate Rust bindings for `std_msgs` and `geometry_msgs`
-3. Build your Rust package with cargo
-4. Install binaries to `install/my_robot_node/lib/my_robot_node/`
+3. Write `.cargo/config.toml` with patches and linker flags
+4. Build your Rust package with cargo
+5. Install binaries to `install/my_robot_node/lib/my_robot_node/`
 
 ### 5. Run Your Program
 
@@ -156,7 +157,7 @@ For `colcon-cargo-ros2` to recognize your package:
 Verify packages are detected:
 ```bash
 $ colcon list
-my_robot_node   src/my_robot_node   (ament_cargo)
+my_robot_node   src/my_robot_node   (ros.ament_cargo)
 ```
 
 ## Building
@@ -179,8 +180,14 @@ colcon build --event-handlers console_direct+
 
 ### Using Custom Interfaces
 
-Custom interface packages follow the standard ROS 2 procedure (CMake-based with `rosidl_generate_interfaces`). Simply add them as dependencies in your Rust package's `Cargo.toml`:
+Custom interface packages follow the standard ROS 2 procedure (CMake-based with `rosidl_generate_interfaces`). Add them as dependencies in both files:
 
+**package.xml** (required for binding generation):
+```xml
+<depend>my_custom_interfaces</depend>
+```
+
+**Cargo.toml**:
 ```toml
 [dependencies]
 my_custom_interfaces = "*"
@@ -196,15 +203,14 @@ When building a colcon workspace, `colcon-cargo-ros2`:
 
 1. **Discovers Packages**: Finds all ROS dependencies via ament index
 2. **Generates Bindings**: Creates Rust bindings in `build/<pkg>/rosidl_cargo/` for each interface package
-3. **Creates Config File**: Writes `build/ros2_cargo_config.toml` with relative paths to all bindings
-4. **Builds**: Runs `cargo build --config build/ros2_cargo_config.toml` from workspace root
+3. **Creates Config**: Generates `.cargo/config.toml` in each Cargo workspace/crate with `[patch.crates-io]` entries and `[build] rustflags` for linker search paths
+4. **Builds**: Runs `cargo build` from workspace root (config is picked up automatically from `.cargo/config.toml`)
 5. **Installs**: Copies binaries and creates ament markers
 
 **Workspace Structure**:
 ```
 ros2_ws/
 ├── build/
-│   ├── ros2_cargo_config.toml  # Workspace config with relative paths
 │   ├── std_msgs/
 │   │   └── rosidl_cargo/       # Rust bindings for std_msgs
 │   │       └── std_msgs/
@@ -222,16 +228,32 @@ ros2_ws/
 └── src/
     ├── my_robot_node/
     │   ├── Cargo.toml
-    │   └── package.xml
+    │   ├── package.xml
+    │   └── .cargo/
+    │       └── config.toml     # Auto-generated (patches + rustflags)
     └── my_interfaces/
 ```
 
+### IDE Support
+
+After `colcon build`, IDEs (RustRover, rust-analyzer, VS Code) can resolve all ROS message dependencies automatically. The extension generates `.cargo/config.toml` files with `[patch.crates-io]` and `[build] rustflags` in each Cargo workspace or standalone crate.
+
+This means `cargo metadata`, `cargo check`, `cargo build`, and IDE features (autocomplete, go-to-definition, type checking) all work without any extra flags.
+
+**Key details**:
+- Config is placed at the Cargo workspace root (or crate root for standalone crates)
+- Contains `[patch.crates-io]` (dependency resolution) and `[build] rustflags` (linker search paths)
+- User entries in existing `.cargo/config.toml` files are preserved via comment-based markers
+- Patch paths are relative for portability; rustflags use absolute paths (required by Cargo)
+- Consider adding `.cargo/config.toml` to `.gitignore` (paths are machine-specific)
+
 ### Benefits
 
+- **IDE Integration**: Full autocomplete and type checking for ROS message types
 - **Per-Package Organization**: Bindings follow ROS conventions (like `rosidl_cmake/`)
 - **Fast Builds**: Intelligent caching skips regeneration when possible
 - **Clean Workspace**: `colcon clean` removes all generated code
-- **Portable**: Config file uses relative paths, making workspaces fully portable
+- **Portable**: Patch paths are relative; consider `.gitignore`-ing `.cargo/config.toml` (rustflags contain absolute paths)
 
 ## Advanced Features
 
@@ -245,7 +267,7 @@ name = "my_robot"
 version = "0.1.0"
 
 [dependencies]
-rclrs = "0.6"
+rclrs = "0.7"
 std_msgs = "*"
 
 [package.metadata.ros]

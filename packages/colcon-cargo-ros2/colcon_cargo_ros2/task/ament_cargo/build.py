@@ -21,25 +21,22 @@ class AmentCargoBuildTask(TaskExtensionPoint):
 
     This task implements a two-phase approach:
     1. Workspace-level binding generation (done once before all builds)
-    2. Per-package cargo build with --config flag
+    2. Per-package cargo build using .cargo/config.toml
 
     The workspace-level binding generation:
     - Discovers all ROS dependencies from ament_index and workspace
-    - Generates ALL bindings to build/ros2_bindings/
-    - Writes single Cargo config file to build/ros2_cargo_config.toml
+    - Generates ALL bindings to build/<pkg>/rosidl_cargo/
+    - Writes .cargo/config.toml with [patch.crates-io] and [build] rustflags
     - Uses lock file to ensure only one process does generation
 
-    Each package build then runs:
-    - cargo build --config build/ros2_cargo_config.toml
-
-    This eliminates race conditions, improves build performance, and avoids
-    conflicts with user's own .cargo/config.toml files.
+    Each package build then runs plain cargo build (patches and rustflags
+    are picked up automatically from .cargo/config.toml).
     """
 
     def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
-        self._build_base = None  # Will be set during workspace binding generation
+        self._build_base = None  # Set during workspace binding generation (used by install)
 
     def add_arguments(self, *, parser):  # noqa: D102
         parser.add_argument(
@@ -74,8 +71,10 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         args = self.context.args
         cmd = self._build_cmd(args.cargo_args if hasattr(args, "cargo_args") else [])
 
-        # Execute cargo build from workspace root (so relative paths in config work)
-        result = await run(self.context, cmd, cwd=self._workspace_root, env=None)
+        # Execute cargo build from the package source directory so Cargo
+        # discovers .cargo/config.toml (walks CWD upward to find it).
+        pkg_dir = str(Path(self.context.pkg.path).resolve())
+        result = await run(self.context, cmd, cwd=pkg_dir, env=None)
         if result and result.returncode != 0:
             return result.returncode
 
@@ -162,9 +161,9 @@ class AmentCargoBuildTask(TaskExtensionPoint):
     def _build_cmd(self, cargo_args):
         """Build the cargo build command.
 
-        Since bindings are generated at workspace-level, we pass --config flag
-        to use the single config file in build/ros2_cargo_config.toml.
-        We also use --manifest-path since cargo is invoked from workspace root.
+        Uses --manifest-path since cargo is invoked from workspace root.
+        Patches and rustflags are picked up from .cargo/config.toml
+        (generated during workspace binding generation).
 
         Adds --quiet flag by default to suppress cargo progress output (matching
         CMake/Python build behavior), unless verbose mode is enabled.
@@ -172,14 +171,8 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         cmd = ["cargo", "build"]
 
         # Add --manifest-path to specify which package to build
-        # (since we're running cargo from workspace root, not package dir)
-        manifest_path = Path(self.context.pkg.path) / "Cargo.toml"
+        manifest_path = Path(self.context.pkg.path).resolve() / "Cargo.toml"
         cmd.extend(["--manifest-path", str(manifest_path)])
-
-        # Add --config flag to use workspace-level config file
-        if self._build_base:
-            config_file = self._build_base / "ros2_cargo_config.toml"
-            cmd.extend(["--config", str(config_file)])
 
         # Handle None cargo_args
         if cargo_args is None:

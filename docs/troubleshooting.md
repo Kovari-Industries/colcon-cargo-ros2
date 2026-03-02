@@ -183,25 +183,22 @@ echo 'export LD_LIBRARY_PATH=/opt/ros/humble/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
 
 ---
 
-### "no such file or directory: .cargo/config.toml"
+### IDE can't resolve ROS message dependencies
 
-**Symptoms**:
-```
-Error: Failed to read .cargo/config.toml: No such file or directory
-```
+**Symptoms**: rust-analyzer or RustRover shows unresolved imports for `std_msgs`, `geometry_msgs`, etc.
 
-**Cause**: Normal on first run - `.cargo/` directory doesn't exist yet.
+**Cause**: `.cargo/config.toml` not yet generated. This file is created automatically by `colcon build`.
 
 **Solution**:
 ```bash
-# Create directory manually
-mkdir -p .cargo
+# Build the workspace — this generates .cargo/config.toml for IDE support
+colcon build
 
-# Run again - cargo-ros2 will create config.toml
-cargo ros2 build
+# After build, cargo check works without --config
+cargo check
 ```
 
-This error is usually transient and resolves itself on the second run.
+The generated `.cargo/config.toml` contains `[patch.crates-io]` entries and `[build] rustflags` pointing to the generated bindings in `build/`. Consider adding it to `.gitignore` (paths are machine-specific).
 
 ---
 

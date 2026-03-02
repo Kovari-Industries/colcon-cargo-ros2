@@ -95,8 +95,7 @@ class TestCargoTomlHasWorkspace:
     def test_workspace_with_members(self, tmp_path):
         toml = tmp_path / "Cargo.toml"
         toml.write_text(
-            '[package]\nname = "x"\nversion = "0.1.0"\n\n'
-            '[workspace]\nmembers = ["a", "b"]\n'
+            '[package]\nname = "x"\nversion = "0.1.0"\n\n[workspace]\nmembers = ["a", "b"]\n'
         )
         assert _cargo_toml_has_workspace(toml) is True
 
@@ -311,9 +310,7 @@ class TestComputeRelativePatches:
         binding_b.mkdir(parents=True)
 
         binding_dirs = {"std_msgs": binding_a, "geometry_msgs": binding_b}
-        patches = WorkspaceBindingGenerator._compute_relative_patches(
-            config_target, binding_dirs
-        )
+        patches = WorkspaceBindingGenerator._compute_relative_patches(config_target, binding_dirs)
 
         assert len(patches) == 2
         # Patches are sorted alphabetically
@@ -397,11 +394,11 @@ class TestCollectBindingDirs:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end: _write_ide_cargo_configs (filesystem-based)
+# End-to-end: _write_cargo_configs (filesystem-based)
 # ---------------------------------------------------------------------------
 
 
-class TestWriteIdeCargoConfigs:
+class TestWriteCargoConfigs:
     """Integration-style tests using real filesystem layout."""
 
     def _setup_bindings(self, tmp_path, packages):
@@ -434,9 +431,11 @@ class TestWriteIdeCargoConfigs:
         RustBindingAugmentation._cargo_descriptors = {"my_robot": desc}
 
         try:
-            gen._write_ide_cargo_configs(
-                {"std_msgs": Path("/opt/ros/jazzy/share/std_msgs"),
-                 "geometry_msgs": Path("/opt/ros/jazzy/share/geometry_msgs")}
+            gen._write_cargo_configs(
+                {
+                    "std_msgs": Path("/opt/ros/jazzy/share/std_msgs"),
+                    "geometry_msgs": Path("/opt/ros/jazzy/share/geometry_msgs"),
+                }
             )
 
             config = crate / ".cargo" / "config.toml"
@@ -444,10 +443,16 @@ class TestWriteIdeCargoConfigs:
 
             content = config.read_text()
             assert "[patch.crates-io]" in content
-            assert "# BEGIN colcon-cargo-ros2" in content
+            assert "# BEGIN colcon-cargo-ros2 generated patches" in content
             assert "# END colcon-cargo-ros2" in content
             assert "std_msgs" in content
             assert "geometry_msgs" in content
+
+            # Verify [build] section with rustflags is present
+            assert "[build]" in content
+            assert "# BEGIN colcon-cargo-ros2 generated build flags" in content
+            assert "# END colcon-cargo-ros2 build flags" in content
+            assert "rustflags" in content
 
             # Verify paths are relative
             for line in content.splitlines():
@@ -483,9 +488,7 @@ class TestWriteIdeCargoConfigs:
         RustBindingAugmentation._cargo_descriptors = {"my_robot": desc}
 
         try:
-            gen._write_ide_cargo_configs(
-                {"std_msgs": Path("/opt/ros/jazzy/share/std_msgs")}
-            )
+            gen._write_cargo_configs({"std_msgs": Path("/opt/ros/jazzy/share/std_msgs")})
 
             content = (cargo_dir / "config.toml").read_text()
             assert "link-arg=-fuse-ld=lld" in content
@@ -495,7 +498,7 @@ class TestWriteIdeCargoConfigs:
             RustBindingAugmentation._cargo_descriptors = {}
 
     def test_idempotent_writes(self, tmp_path):
-        """Running _write_ide_cargo_configs twice produces the same file."""
+        """Running _write_cargo_configs twice produces the same file."""
         gen = _make_generator(tmp_path)
 
         crate = tmp_path / "src" / "my_robot"
@@ -514,10 +517,10 @@ class TestWriteIdeCargoConfigs:
 
         try:
             ros_pkgs = {"std_msgs": Path("/opt/ros/jazzy/share/std_msgs")}
-            gen._write_ide_cargo_configs(ros_pkgs)
+            gen._write_cargo_configs(ros_pkgs)
             first = (crate / ".cargo" / "config.toml").read_text()
 
-            gen._write_ide_cargo_configs(ros_pkgs)
+            gen._write_cargo_configs(ros_pkgs)
             second = (crate / ".cargo" / "config.toml").read_text()
 
             assert first == second
@@ -530,8 +533,7 @@ class TestWriteIdeCargoConfigs:
 
         # Cargo workspace root
         ws = tmp_path / "src" / "my_robot"
-        _make_cargo_toml(ws / "Cargo.toml", workspace=True,
-                         extra='members = ["core", "nav"]')
+        _make_cargo_toml(ws / "Cargo.toml", workspace=True, extra='members = ["core", "nav"]')
 
         # Two member crates
         core = ws / "core"
@@ -552,14 +554,10 @@ class TestWriteIdeCargoConfigs:
         desc_core.path = str(core)
         desc_nav = MagicMock()
         desc_nav.path = str(nav)
-        RustBindingAugmentation._cargo_descriptors = {
-            "core": desc_core, "nav": desc_nav
-        }
+        RustBindingAugmentation._cargo_descriptors = {"core": desc_core, "nav": desc_nav}
 
         try:
-            gen._write_ide_cargo_configs(
-                {"std_msgs": Path("/opt/ros/jazzy/share/std_msgs")}
-            )
+            gen._write_cargo_configs({"std_msgs": Path("/opt/ros/jazzy/share/std_msgs")})
 
             # Only one config at workspace root, not per-crate
             assert (ws / ".cargo" / "config.toml").exists()
@@ -567,3 +565,171 @@ class TestWriteIdeCargoConfigs:
             assert not (nav / ".cargo" / "config.toml").exists()
         finally:
             RustBindingAugmentation._cargo_descriptors = {}
+
+
+# ---------------------------------------------------------------------------
+# _compute_rustflags
+# ---------------------------------------------------------------------------
+
+
+class TestComputeRustflags:
+    def test_from_install_base(self, tmp_path):
+        """Collects -L flags from install base lib dirs."""
+        gen = _make_generator(tmp_path)
+        # Create install/<pkg>/lib/ directories
+        (tmp_path / "install" / "pkg_a" / "lib").mkdir(parents=True)
+        (tmp_path / "install" / "pkg_b" / "lib").mkdir(parents=True)
+
+        flags = gen._compute_rustflags()
+        assert len(flags) >= 2
+        assert any("pkg_a" in f for f in flags)
+        assert any("pkg_b" in f for f in flags)
+        # All flags should use absolute paths
+        for f in flags:
+            assert "native=/" in f or "native=\\" in f
+
+    def test_from_ament_prefix_path(self, tmp_path, monkeypatch):
+        """Collects -L flags from AMENT_PREFIX_PATH."""
+        gen = _make_generator(tmp_path)
+        ros_prefix = tmp_path / "opt" / "ros" / "jazzy"
+        (ros_prefix / "lib").mkdir(parents=True)
+        monkeypatch.setenv("AMENT_PREFIX_PATH", str(ros_prefix))
+
+        flags = gen._compute_rustflags()
+        assert any("jazzy" in f for f in flags)
+
+    def test_empty_when_nothing_exists(self, tmp_path, monkeypatch):
+        """Returns empty list when no lib directories exist."""
+        gen = _make_generator(tmp_path)
+        monkeypatch.delenv("AMENT_PREFIX_PATH", raising=False)
+
+        flags = gen._compute_rustflags()
+        assert flags == []
+
+    def test_skips_non_directories(self, tmp_path, monkeypatch):
+        """Skips files in install base (only directories)."""
+        gen = _make_generator(tmp_path)
+        monkeypatch.delenv("AMENT_PREFIX_PATH", raising=False)
+        install = tmp_path / "install"
+        install.mkdir(exist_ok=True)
+        (install / "some_file.txt").write_text("not a dir")
+        (install / "real_pkg" / "lib").mkdir(parents=True)
+
+        flags = gen._compute_rustflags()
+        assert len(flags) == 1
+        assert "real_pkg" in flags[0]
+
+
+# ---------------------------------------------------------------------------
+# _generate_build_marker_block
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateBuildMarkerBlock:
+    _cls = WorkspaceBindingGenerator
+
+    def test_with_rustflags(self):
+        """Block contains rustflags array."""
+        flags = ['"-L", "native=/opt/ros/jazzy/lib"']
+        block = self._cls._generate_build_marker_block(flags)
+        assert "# BEGIN colcon-cargo-ros2 generated build flags" in block
+        assert "# END colcon-cargo-ros2 build flags" in block
+        assert "rustflags = [" in block
+        assert "native=/opt/ros/jazzy/lib" in block
+
+    def test_empty_rustflags(self):
+        """Empty flags produce rustflags = []."""
+        block = self._cls._generate_build_marker_block([])
+        assert "rustflags = []" in block
+        assert "# BEGIN colcon-cargo-ros2 generated build flags" in block
+
+    def test_multiple_flags(self):
+        """Multiple flags are separated by commas."""
+        flags = [
+            '"-L", "native=/opt/ros/jazzy/lib"',
+            '"-L", "native=/ws/install/pkg/lib"',
+        ]
+        block = self._cls._generate_build_marker_block(flags)
+        lines = block.splitlines()
+        # First flag line should end with comma, last should not
+        flag_lines = [line for line in lines if "native=" in line]
+        assert len(flag_lines) == 2
+        assert flag_lines[0].rstrip().endswith(",")
+        assert not flag_lines[1].rstrip().endswith(",")
+
+
+# ---------------------------------------------------------------------------
+# _merge_build_into_config
+# ---------------------------------------------------------------------------
+
+
+class TestMergeBuildIntoConfig:
+    _cls = WorkspaceBindingGenerator
+
+    def _build_block(self, flags=None):
+        if flags is None:
+            flags = ['"-L", "native=/opt/ros/jazzy/lib"']
+        return self._cls._generate_build_marker_block(flags)
+
+    def test_no_build_section(self):
+        """No [build] section → appends new [build] section at end."""
+        existing = '[patch.crates-io]\nstd_msgs = { path = "x" }\n'
+        result = self._cls._merge_build_into_config(existing, self._build_block())
+        assert "[build]" in result
+        assert "# BEGIN colcon-cargo-ros2 generated build flags" in result
+        assert "native=/opt/ros/jazzy/lib" in result
+        # [patch.crates-io] should still be first
+        assert result.index("[patch.crates-io]") < result.index("[build]")
+
+    def test_existing_build_section_no_markers(self):
+        """Existing [build] section without markers → appends block within section."""
+        existing = textwrap.dedent("""\
+            [build]
+            jobs = 4
+
+            [env]
+            MY_VAR = "hello"
+        """)
+        result = self._cls._merge_build_into_config(existing, self._build_block())
+        assert "jobs = 4" in result
+        assert "# BEGIN colcon-cargo-ros2 generated build flags" in result
+        assert '[env]\nMY_VAR = "hello"' in result
+
+    def test_existing_build_markers_replaced(self):
+        """Existing build markers → content between them is replaced."""
+        existing = textwrap.dedent("""\
+            [build]
+            # BEGIN colcon-cargo-ros2 generated build flags
+            rustflags = ["-L", "native=/old/path"]
+            # END colcon-cargo-ros2 build flags
+
+            [env]
+            MY_VAR = "hello"
+        """)
+        new_block = self._build_block(['"-L", "native=/new/path"'])
+        result = self._cls._merge_build_into_config(existing, new_block)
+        assert "/old/path" not in result
+        assert "/new/path" in result
+        assert '[env]\nMY_VAR = "hello"' in result
+
+    def test_idempotent(self):
+        """Running merge twice produces the same output."""
+        existing = '[patch.crates-io]\nstd_msgs = { path = "x" }\n'
+        block = self._build_block()
+        first = self._cls._merge_build_into_config(existing, block)
+        second = self._cls._merge_build_into_config(first, block)
+        assert first == second
+
+    def test_preserves_other_sections(self):
+        """Other TOML sections are fully preserved."""
+        existing = textwrap.dedent("""\
+            [env]
+            MY_VAR = "hello"
+
+            [target.x86_64-unknown-linux-gnu]
+            linker = "clang"
+        """)
+        result = self._cls._merge_build_into_config(existing, self._build_block())
+        assert '[env]\nMY_VAR = "hello"' in result
+        assert 'linker = "clang"' in result
+        assert "[build]" in result

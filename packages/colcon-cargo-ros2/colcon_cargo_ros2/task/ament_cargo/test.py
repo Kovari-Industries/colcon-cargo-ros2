@@ -2,7 +2,6 @@
 
 """Test task for Rust ROS 2 packages using cargo test."""
 
-import os
 import xml.etree.ElementTree as eTree
 from pathlib import Path
 from xml.dom import minidom
@@ -20,7 +19,7 @@ class AmentCargoTestTask(TaskExtensionPoint):
     """Test Rust ROS 2 packages using cargo test.
 
     This task runs cargo test with proper workspace configuration:
-    - Uses --config build/ros2_cargo_config.toml for ROS message bindings
+    - Uses .cargo/config.toml for ROS message bindings (patches + rustflags)
     - Sources dependency environments via get_command_environment()
     - Generates JUnit XML output for colcon test-result
     - Posts TestFailure events for proper failure reporting
@@ -61,10 +60,6 @@ class AmentCargoTestTask(TaskExtensionPoint):
 
         logger.info(f"Testing Rust package in '{args.path}'")
 
-        # Derive workspace paths (same logic as build task)
-        build_base = Path(os.path.abspath(os.path.join(args.build_base, "..")))
-        workspace_root = build_base.parent
-
         # Get command environment with dependencies sourced
         try:
             env = await get_command_environment("test", args.build_base, self.context.dependencies)
@@ -76,20 +71,21 @@ class AmentCargoTestTask(TaskExtensionPoint):
         cargo_args = getattr(args, "cargo_args", None) or []
         test_args = getattr(args, "cargo_test_args", None) or []
 
-        cmd = self._build_test_cmd(
-            workspace_root, build_base, args.build_base, cargo_args, test_args
-        )
+        cmd = self._build_test_cmd(args.build_base, cargo_args, test_args)
 
         # Support retest options
         retest_until_pass = getattr(args, "retest_until_pass", 0)
         retest_until_fail = getattr(args, "retest_until_fail", 0)
 
+        # Run cargo from the package source directory so Cargo
+        # discovers .cargo/config.toml (walks CWD upward to find it).
+        pkg_dir = str(Path(self.context.pkg.path).resolve())
+
         rerun = 0
         completed = None
         while True:
-            # Run cargo test from workspace root (so relative paths in config work)
             completed = await run(
-                self.context, cmd, cwd=workspace_root, env=env, capture_output=True
+                self.context, cmd, cwd=pkg_dir, env=env, capture_output=True
             )
 
             if not completed.returncode:
@@ -129,26 +125,20 @@ class AmentCargoTestTask(TaskExtensionPoint):
         # Always return 0 - colcon handles failure reporting via TestFailure events
         return 0
 
-    def _build_test_cmd(self, workspace_root, build_base, target_dir, cargo_args, test_args):
-        """Build the cargo test command with workspace configuration.
+    def _build_test_cmd(self, target_dir, cargo_args, test_args):
+        """Build the cargo test command.
 
-        Uses --config flag to include ROS message binding patches from
-        build/ros2_cargo_config.toml, and --manifest-path since cargo
-        is invoked from workspace root.
+        Uses --manifest-path for package selection.
+        Patches and rustflags are picked up from .cargo/config.toml.
         """
         cmd = ["cargo", "test"]
 
         # Add --manifest-path to specify which package to test
-        manifest_path = Path(self.context.pkg.path) / "Cargo.toml"
+        manifest_path = Path(self.context.pkg.path).resolve() / "Cargo.toml"
         cmd.extend(["--manifest-path", str(manifest_path)])
 
         # Add --target-dir to place test artifacts in expected location
         cmd.extend(["--target-dir", str(target_dir)])
-
-        # Add --config flag to use workspace-level config file
-        config_file = build_base / "ros2_cargo_config.toml"
-        if config_file.exists():
-            cmd.extend(["--config", str(config_file)])
 
         # Add --quiet flag by default (matching build behavior)
         args = self.context.args

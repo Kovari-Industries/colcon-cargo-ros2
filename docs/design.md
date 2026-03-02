@@ -312,10 +312,14 @@ Patches are exactly designed for this use case: temporary local redirects during
 - Need to add comments/header to generated file
 - Need to document that .cargo/ should be gitignored (or at least config.toml)
 
-**Open Questions**:
-- Should we warn if .cargo/config.toml is not in .gitignore?
-- How to handle existing user patches in .cargo/config.toml?
-- Should we support reading patches from Cargo.toml too? (in case user wants them tracked)
+**Implementation (Phase 6+)**:
+The implementation uses a single `.cargo/config.toml` per Cargo workspace/crate containing both `[patch.crates-io]` and `[build] rustflags`. This consolidates all config into one file that Cargo picks up automatically — no `--config` flag needed.
+
+Two marker systems preserve user content:
+- `# BEGIN colcon-cargo-ros2 generated patches` / `# END colcon-cargo-ros2` for patches
+- `# BEGIN colcon-cargo-ros2 generated build flags` / `# END colcon-cargo-ros2 build flags` for rustflags
+
+A log hint suggests adding `.cargo/config.toml` to `.gitignore`.
 
 ---
 
@@ -570,13 +574,10 @@ Not in MVP, but considerations:
 - Bindgen would need to know target triple
 
 ### IDE Integration
-rust-analyzer needs to see generated code:
-- Should we generate rust-project.json?
-- Or rely on .cargo/config.toml patches being enough?
 
-**Leaning toward**: Patches should be sufficient, test and document
+**Resolved (Phase 6)**: `.cargo/config.toml` patches are sufficient. After `colcon build`, `cargo metadata` and `cargo check` work without `--config`, enabling full IDE support (autocomplete, go-to-definition, type checking) in RustRover, rust-analyzer, and VS Code. No `rust-project.json` needed.
 
 ---
 
 **Status**: Design decisions documented
-**Last Updated**: 2025-01-30
+**Last Updated**: 2026-03-02
