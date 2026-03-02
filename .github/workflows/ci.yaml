@@ -41,11 +41,11 @@ jobs:
 
       - name: Run clippy
         working-directory: packages
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo +stable clippy --workspace --all-targets -- -D warnings
 
       - name: Run tests
         working-directory: packages
-        run: cargo test --workspace
+        run: cargo +stable test --workspace
 
   python-test:
     name: Python Tests
