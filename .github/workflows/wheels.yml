@@ -1,3 +1,4 @@
+---
 name: Build Wheels
 
 on:
@@ -10,7 +11,68 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install nightly toolchain (for rustfmt)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('packages/Cargo.lock') }}
+
+      - name: Check formatting
+        working-directory: packages
+        run: cargo +nightly fmt --all -- --check
+
+      - name: Run clippy
+        working-directory: packages
+        run: cargo +stable clippy --workspace --all-targets -- -D warnings
+
+      - name: Run tests
+        working-directory: packages
+        run: cargo +stable test --workspace
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build and install wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          args: --release --out dist
+          sccache: 'true'
+          working-directory: packages/colcon-cargo-ros2
+
+      - name: Install wheel and test dependencies
+        run: |
+          pip install packages/colcon-cargo-ros2/dist/*.whl
+          pip install pytest ruff colcon-core colcon-library-path colcon-ros
+
+      - name: Run ruff lint
+        working-directory: packages/colcon-cargo-ros2
+        run: ruff check colcon_cargo_ros2/ test/
+
+      - name: Run pytest
+        run: pytest packages/colcon-cargo-ros2/test/ -v
+
   linux:
+    needs: [lint]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -35,6 +97,7 @@ jobs:
           path: packages/colcon-cargo-ros2/dist/*.whl
 
   macos:
+    needs: [lint]
     runs-on: macos-latest
     strategy:
       matrix:
@@ -62,6 +125,7 @@ jobs:
           path: packages/colcon-cargo-ros2/dist/*.whl
 
   windows:
+    needs: [lint]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -89,6 +153,7 @@ jobs:
           path: packages/colcon-cargo-ros2/dist/*.whl
 
   sdist:
+    needs: [lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,10 +171,43 @@ jobs:
           name: wheels-sdist
           path: packages/colcon-cargo-ros2/dist/*.tar.gz
 
+  smoke-test:
+    name: Smoke test wheels
+    needs: [linux, macos, windows]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: wheels-linux-x86_64-py3.10
+          - os: macos-latest
+            artifact: wheels-macos-aarch64-py3.10
+          - os: windows-latest
+            artifact: wheels-windows-x64-py3.10
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist
+
+      - name: Install and verify wheel
+        shell: bash
+        run: |
+          pip install dist/*.whl
+          python -c "
+          import colcon_cargo_ros2
+          from colcon_cargo_ros2.cargo_ros2_py import BindgenConfig, InstallConfig
+          print('OK: native module loads')
+          "
+
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [linux, macos, windows, sdist]
+    needs: [smoke-test, sdist]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       id-token: write  # For trusted publishing
