@@ -7,8 +7,10 @@
 | Phase 2: cargo-ros2 Tools             | 4 weeks  | 10 weeks   | M2: Tools Complete     |
 | Phase 3: Production Features          | 5 weeks  | 15 weeks   | M3: Feature Complete   |
 | Phase 4: colcon Integration & Release | 4 weeks  | 19 weeks   | M4: Production Ready   |
+| Phase 5: OMG IDL 4.2 Support         | 6 weeks  | 25 weeks   | M5: IDL Complete       |
+| Phase 6: IDE Support                  | 2 weeks  | 27 weeks   | M6: IDE Integration    |
 
-**Total Duration**: 19 weeks (~4.75 months)
+**Total Duration**: 27 weeks (~6.75 months)
 
 **Note**: Updated timeline includes Subphase 1.7 (Code Generation Fixes) discovered during testing. This is more ambitious than the original 12-16 week timeline, but includes:
 - Complete native Rust implementation (no Python dependency)
