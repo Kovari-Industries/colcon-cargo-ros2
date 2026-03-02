@@ -182,6 +182,20 @@ check:
     just check-packages
     just check-python
 
+# === TESTING WORKSPACE COMMANDS ===
+
+# Install ROS dependencies for all testing workspaces
+install-test-deps:
+    #!/usr/bin/env bash
+    set -e
+    rosdep update
+    for ws in testing_workspaces/my_robot_node \
+              testing_workspaces/complex_workspace \
+              testing_workspaces/ros2_rust_examples; do
+        echo "Installing deps for $ws..."
+        just -f "$ws/justfile" install-deps
+    done
+
 # === QUALITY COMMANDS ===
 
 # Run all quality checks (format, lint, test)
