@@ -1,7 +1,7 @@
+use rosidl_parser::FieldType;
 use rosidl_parser::ast::ConstantValue;
 use rosidl_parser::idl::ast::ConstantValue as IdlConstantValue;
 use rosidl_parser::idl::types::IdlType;
-use rosidl_parser::FieldType;
 
 /// Extension trait for FieldType providing type checking methods
 pub trait FieldTypeExt {
@@ -693,8 +693,8 @@ impl IdlTypeExt for IdlType {
 pub fn idl_primitive_to_primitive(
     idl_prim: &rosidl_parser::idl::types::IdlPrimitiveType,
 ) -> rosidl_parser::PrimitiveType {
-    use rosidl_parser::idl::types::IdlPrimitiveType;
     use rosidl_parser::PrimitiveType;
+    use rosidl_parser::idl::types::IdlPrimitiveType;
 
     match idl_prim {
         IdlPrimitiveType::Short => PrimitiveType::Int16,

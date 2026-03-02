@@ -34,7 +34,7 @@ pub mod dependency_parser;
 pub mod package_discovery;
 pub mod workflow;
 
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 use std::path::{Path, PathBuf};
 
 /// Configuration for binding generation
@@ -158,6 +158,7 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
 /// let config = InstallConfig {
 ///     project_root: PathBuf::from("/path/to/project"),
 ///     install_base: PathBuf::from("install/my_package"),
+///     build_base: PathBuf::from("build/my_package"),
 ///     profile: "release".to_string(),
 ///     verbose: true,
 /// };
@@ -166,7 +167,7 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
 /// # Ok::<(), eyre::Report>(())
 /// ```
 pub fn install_to_ament(config: InstallConfig) -> Result<()> {
-    use crate::ament_installer::{is_library_package, AmentInstaller};
+    use crate::ament_installer::{AmentInstaller, is_library_package};
     use cargo_metadata::MetadataCommand;
     use std::env;
 

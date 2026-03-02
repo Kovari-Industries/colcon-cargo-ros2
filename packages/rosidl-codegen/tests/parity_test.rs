@@ -1,6 +1,6 @@
 // Parity tests - verify generation works with real ROS packages from system
 use rosidl_codegen::{
-    generate_action_package, generate_message_package, generate_service_package, GeneratorError,
+    GeneratorError, generate_action_package, generate_message_package, generate_service_package,
 };
 use rosidl_parser::{parse_action, parse_message, parse_service};
 use std::collections::HashSet;

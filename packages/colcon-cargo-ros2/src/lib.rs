@@ -3,6 +3,7 @@
 //! This module exposes cargo-ros2's functionality to Python using PyO3.
 
 #![allow(clippy::useless_conversion)] // False positive with PyO3 0.22
+#![allow(unsafe_op_in_unsafe_fn)] // PyO3 0.22 macros generate unsafe calls inside unsafe fns
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -47,7 +48,11 @@ impl BindgenConfig {
     fn __repr__(&self) -> String {
         format!(
             "BindgenConfig(package_name='{}', output_dir='{}', package_path={:?}, verbose={}, rosidl_runtime_rs_version={:?})",
-            self.package_name, self.output_dir, self.package_path, self.verbose, self.rosidl_runtime_rs_version
+            self.package_name,
+            self.output_dir,
+            self.package_path,
+            self.verbose,
+            self.rosidl_runtime_rs_version
         )
     }
 }

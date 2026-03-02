@@ -79,7 +79,7 @@ fn has_large_array(field_type: &FieldType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rosidl_parser::{parse_message, Field, PrimitiveType};
+    use rosidl_parser::{Field, PrimitiveType, parse_message};
 
     #[test]
     fn test_extract_dependencies() {

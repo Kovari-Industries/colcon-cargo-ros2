@@ -98,14 +98,12 @@ impl ConfigPatcher {
 
     /// Remove a patch entry
     pub fn remove_patch(&mut self, package_name: &str) -> bool {
-        if let Some(patch_table) = self.config.get_mut("patch") {
-            if let Some(crates_io) = patch_table.as_table_mut() {
-                if let Some(crates_io_table) = crates_io.get_mut("crates-io") {
-                    if let Some(table) = crates_io_table.as_table_mut() {
-                        return table.remove(package_name).is_some();
-                    }
-                }
-            }
+        if let Some(patch_table) = self.config.get_mut("patch")
+            && let Some(crates_io) = patch_table.as_table_mut()
+            && let Some(crates_io_table) = crates_io.get_mut("crates-io")
+            && let Some(table) = crates_io_table.as_table_mut()
+        {
+            return table.remove(package_name).is_some();
         }
         false
     }

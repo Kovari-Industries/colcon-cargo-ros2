@@ -9,10 +9,10 @@ use crate::ament::Package;
 use askama::Template;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
-    generate_action_package, generate_idl_file, generate_message_package, generate_service_package,
+    GeneratedPackage, generate_action_package, generate_idl_file, generate_message_package,
+    generate_service_package,
     idl_generator::idl_struct_to_message,
     utils::{extract_dependencies, needs_big_array, to_snake_case},
-    GeneratedPackage,
 };
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

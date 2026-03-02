@@ -5,7 +5,7 @@
 //! - Discover ROS 2 packages in the ament index
 //! - Locate interface files (.msg, .srv, .action) within packages
 
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -139,26 +139,28 @@ fn discover_interface_files(dir: &Path, extension: &str) -> Result<Vec<String>> 
         let entry = entry?;
         let path = entry.path();
 
-        if path.is_file() {
-            if let Some(ext) = path.extension() {
-                if ext == extension {
-                    // Skip auto-generated .idl files (they're generated from .msg files)
-                    if extension == "idl" {
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            if content
-                                .trim_start()
-                                .starts_with("// generated from rosidl_adapter")
-                            {
-                                continue;
-                            }
-                        }
-                    }
+        if !path.is_file() {
+            continue;
+        }
+        let Some(ext) = path.extension() else {
+            continue;
+        };
+        if ext != extension {
+            continue;
+        }
 
-                    if let Some(name) = path.file_stem() {
-                        files.push(name.to_string_lossy().to_string());
-                    }
-                }
-            }
+        // Skip auto-generated .idl files (they're generated from .msg files)
+        if extension == "idl"
+            && let Ok(content) = std::fs::read_to_string(&path)
+            && content
+                .trim_start()
+                .starts_with("// generated from rosidl_adapter")
+        {
+            continue;
+        }
+
+        if let Some(name) = path.file_stem() {
+            files.push(name.to_string_lossy().to_string());
         }
     }
 

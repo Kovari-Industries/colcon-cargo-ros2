@@ -492,7 +492,8 @@ mod error_tests {
     fn test_ament_index_not_available() {
         // Temporarily unset AMENT_PREFIX_PATH if it exists
         let original = std::env::var("AMENT_PREFIX_PATH").ok();
-        std::env::remove_var("AMENT_PREFIX_PATH");
+        // SAFETY: This test runs serially and restores the env var afterward.
+        unsafe { std::env::remove_var("AMENT_PREFIX_PATH") };
 
         use rosidl_bindgen::ament::AmentIndex;
 
@@ -500,7 +501,8 @@ mod error_tests {
 
         // Restore original value
         if let Some(val) = original {
-            std::env::set_var("AMENT_PREFIX_PATH", val);
+            // SAFETY: Restoring the original env var value.
+            unsafe { std::env::set_var("AMENT_PREFIX_PATH", val) };
         }
 
         assert!(

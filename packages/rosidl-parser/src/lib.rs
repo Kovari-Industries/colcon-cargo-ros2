@@ -7,12 +7,12 @@ pub mod idl;
 
 pub use ast::{Action, ActionSpec, Constant, Field, FieldType, Message, PrimitiveType, Service};
 pub use lexer::{Token, TokenKind};
-pub use parser::{parse_action, parse_message, parse_service, ParseError};
+pub use parser::{ParseError, parse_action, parse_message, parse_service};
 
 // Re-export IDL types
 pub use idl::{
-    parse_idl_file, Annotation, ConstantModule, EnumDef, IdlFile, IdlModule, IdlParseError,
-    IdlPrimitiveType, IdlStruct, IdlToken, IdlTokenKind, IdlType,
+    Annotation, ConstantModule, EnumDef, IdlFile, IdlModule, IdlParseError, IdlPrimitiveType,
+    IdlStruct, IdlToken, IdlTokenKind, IdlType, parse_idl_file,
 };
 
 #[cfg(test)]

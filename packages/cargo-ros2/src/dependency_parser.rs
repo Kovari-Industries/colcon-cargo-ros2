@@ -4,7 +4,7 @@
 //! dependencies and matches them against the ament index.
 
 use cargo_metadata::MetadataCommand;
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
@@ -111,17 +111,15 @@ impl DependencyParser {
             }
 
             // Parse dependency line
-            if in_dependencies {
-                if let Some(eq_pos) = trimmed.find('=') {
-                    let dep_name = trimmed[..eq_pos].trim().to_string();
+            if in_dependencies && let Some(eq_pos) = trimmed.find('=') {
+                let dep_name = trimmed[..eq_pos].trim().to_string();
 
-                    // Check if this is a known ROS package
-                    if self.is_ros_package(&dep_name) {
-                        dependencies.push(RosDependency {
-                            name: dep_name,
-                            direct: true, // All discovered via Cargo.toml are direct
-                        });
-                    }
+                // Check if this is a known ROS package
+                if self.is_ros_package(&dep_name) {
+                    dependencies.push(RosDependency {
+                        name: dep_name,
+                        direct: true, // All discovered via Cargo.toml are direct
+                    });
                 }
             }
         }

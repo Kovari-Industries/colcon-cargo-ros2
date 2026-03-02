@@ -41,17 +41,17 @@ pub fn discover_workspace_packages(
 
         // Check if we should skip this directory
         // Skip build/ directories
-        if let Some(build_base) = build_base {
-            if dir == build_base || dir.starts_with(build_base) {
-                return Ok(());
-            }
+        if let Some(build_base) = build_base
+            && (dir == build_base || dir.starts_with(build_base))
+        {
+            return Ok(());
         }
 
         // Skip install/ directories (identified by setup.sh)
-        if let Some(install_base) = install_base {
-            if dir == install_base || dir.starts_with(install_base) {
-                return Ok(());
-            }
+        if let Some(install_base) = install_base
+            && (dir == install_base || dir.starts_with(install_base))
+        {
+            return Ok(());
         }
 
         // Check for setup.sh (indicates install directory)
@@ -68,20 +68,20 @@ pub fn discover_workspace_packages(
         let cargo_toml_path = dir.join("Cargo.toml");
         if cargo_toml_path.exists() {
             // Try to extract package name
-            if let Ok(content) = fs::read_to_string(&cargo_toml_path) {
-                if let Some(name) = extract_package_name(&content) {
-                    packages.insert(name, dir.to_path_buf());
-                }
+            if let Ok(content) = fs::read_to_string(&cargo_toml_path)
+                && let Some(name) = extract_package_name(&content)
+            {
+                packages.insert(name, dir.to_path_buf());
             }
         }
 
         // Recursively walk subdirectories
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        walk_dir(&entry.path(), build_base, install_base, packages)?;
-                    }
+                if let Ok(file_type) = entry.file_type()
+                    && file_type.is_dir()
+                {
+                    walk_dir(&entry.path(), build_base, install_base, packages)?;
                 }
             }
         }
@@ -233,12 +233,12 @@ pub fn discover_interface_packages_from_workspace(
 fn extract_package_name(cargo_toml: &str) -> Option<String> {
     for line in cargo_toml.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("name") {
-            if let Some(eq_pos) = trimmed.find('=') {
-                let value = &trimmed[eq_pos + 1..].trim();
-                let value = value.trim_matches('"').trim_matches('\'');
-                return Some(value.to_string());
-            }
+        if trimmed.starts_with("name")
+            && let Some(eq_pos) = trimmed.find('=')
+        {
+            let value = &trimmed[eq_pos + 1..].trim();
+            let value = value.trim_matches('"').trim_matches('\'');
+            return Some(value.to_string());
         }
     }
     None
@@ -307,7 +307,8 @@ version = "0.1.0"
     #[test]
     fn test_discover_installed_ament_packages_empty() {
         // When AMENT_PREFIX_PATH is not set, should return empty
-        env::remove_var("AMENT_PREFIX_PATH");
+        // SAFETY: This test runs serially and restores no state (env var is simply removed).
+        unsafe { env::remove_var("AMENT_PREFIX_PATH") };
         let packages = discover_installed_ament_packages().unwrap();
         assert!(packages.is_empty());
     }

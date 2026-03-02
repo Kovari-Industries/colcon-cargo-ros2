@@ -470,7 +470,7 @@ pub fn generate_action_package(
 mod tests {
     use super::*;
     use rosidl_parser::{
-        parse_action, parse_message, parse_service, Field, FieldType, PrimitiveType,
+        Field, FieldType, PrimitiveType, parse_action, parse_message, parse_service,
     };
 
     #[test]

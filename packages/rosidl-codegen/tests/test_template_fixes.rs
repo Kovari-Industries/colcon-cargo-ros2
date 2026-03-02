@@ -1,4 +1,4 @@
-use rosidl_codegen::{generate_message_package, GeneratorError};
+use rosidl_codegen::{GeneratorError, generate_message_package};
 use rosidl_parser::parse_message;
 use std::collections::HashSet;
 

@@ -1,6 +1,6 @@
 // Edge case tests - verify generator handles unusual but valid inputs
-use rosidl_codegen::{generate_message_package, GeneratorError};
-use rosidl_parser::{parse_message, Field, FieldType, Message, PrimitiveType};
+use rosidl_codegen::{GeneratorError, generate_message_package};
+use rosidl_parser::{Field, FieldType, Message, PrimitiveType, parse_message};
 use std::collections::HashSet;
 
 #[test]

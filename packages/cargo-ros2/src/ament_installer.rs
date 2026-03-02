@@ -447,10 +447,10 @@ impl AmentInstaller {
                     continue;
                 }
 
-                if trimmed.starts_with("name") {
-                    if let Some(name) = self.extract_toml_string_value(trimmed) {
-                        binaries.push(name);
-                    }
+                if trimmed.starts_with("name")
+                    && let Some(name) = self.extract_toml_string_value(trimmed)
+                {
+                    binaries.push(name);
                 }
             }
         }

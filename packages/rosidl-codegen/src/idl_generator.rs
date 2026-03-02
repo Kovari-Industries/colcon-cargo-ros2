@@ -145,10 +145,10 @@ fn generate_struct(
     let mut code = String::new();
 
     // Add documentation from @verbatim annotation if present
-    if let Some(verbatim) = struct_def.get_annotation("verbatim") {
-        if let Some(AnnotationValue::String(text)) = verbatim.get_param("text") {
-            code.push_str(&format!("/// {}\n", text));
-        }
+    if let Some(verbatim) = struct_def.get_annotation("verbatim")
+        && let Some(AnnotationValue::String(text)) = verbatim.get_param("text")
+    {
+        code.push_str(&format!("/// {}\n", text));
     }
 
     // Struct definition
@@ -181,10 +181,10 @@ fn generate_field(
     package_name: &str,
 ) -> Result<(), String> {
     // Add field documentation from @verbatim if present
-    if let Some(verbatim) = member.get_annotation("verbatim") {
-        if let Some(AnnotationValue::String(text)) = verbatim.get_param("text") {
-            code.push_str(&format!("    /// {}\n", text));
-        }
+    if let Some(verbatim) = member.get_annotation("verbatim")
+        && let Some(AnnotationValue::String(text)) = verbatim.get_param("text")
+    {
+        code.push_str(&format!("    /// {}\n", text));
     }
 
     // Add comment for @key annotation

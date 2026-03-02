@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rosidl_codegen::{generate_action_package, generate_message_package, generate_service_package};
 use rosidl_parser::{parse_action, parse_message, parse_service};
 use std::collections::HashSet;

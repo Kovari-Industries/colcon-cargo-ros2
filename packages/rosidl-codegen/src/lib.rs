@@ -5,19 +5,19 @@ pub mod types;
 pub mod utils;
 
 pub use generator::{
-    generate_action_package, generate_message_package, generate_service_package,
     GeneratedActionPackage, GeneratedPackage, GeneratedServicePackage, GeneratorError,
+    generate_action_package, generate_message_package, generate_service_package,
 };
-pub use idl_generator::{extract_annotations, generate_idl_file, GeneratedIdlCode};
+pub use idl_generator::{GeneratedIdlCode, extract_annotations, generate_idl_file};
 pub use types::{
-    escape_keyword, idl_constant_value_to_rust, rust_type_for_field, rust_type_for_idl,
-    rust_type_for_idl_constant, FieldTypeExt, IdlTypeExt,
+    FieldTypeExt, IdlTypeExt, escape_keyword, idl_constant_value_to_rust, rust_type_for_field,
+    rust_type_for_idl, rust_type_for_idl_constant,
 };
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rosidl_parser::{parse_message, FieldType, PrimitiveType};
+    use rosidl_parser::{FieldType, PrimitiveType, parse_message};
 
     #[test]
     fn test_basic_type_mapping() {

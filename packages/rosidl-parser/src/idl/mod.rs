@@ -12,5 +12,5 @@ pub use ast::{
     Annotation, ConstantModule, EnumDef, EnumVariant, IdlFile, IdlModule, IdlStruct, StructMember,
 };
 pub use lexer::{IdlToken, IdlTokenKind};
-pub use parser::{parse_idl_file, IdlParseError};
+pub use parser::{IdlParseError, parse_idl_file};
 pub use types::{IdlPrimitiveType, IdlType};

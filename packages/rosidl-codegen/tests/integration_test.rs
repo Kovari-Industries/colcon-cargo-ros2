@@ -1,5 +1,5 @@
 use rosidl_codegen::{
-    generate_action_package, generate_message_package, generate_service_package, GeneratorError,
+    GeneratorError, generate_action_package, generate_message_package, generate_service_package,
 };
 use rosidl_parser::{parse_action, parse_message, parse_service};
 use std::collections::HashSet;
@@ -80,9 +80,11 @@ fn test_generate_message_with_sequences() -> Result<(), GeneratorError> {
 
     // Verify RMW layer uses rosidl types
     assert!(result.message_rmw.contains("rosidl_runtime_rs::Sequence"));
-    assert!(result
-        .message_rmw
-        .contains("rosidl_runtime_rs::BoundedSequence"));
+    assert!(
+        result
+            .message_rmw
+            .contains("rosidl_runtime_rs::BoundedSequence")
+    );
 
     // Verify idiomatic layer uses Vec
     assert!(result.message_idiomatic.contains("std::vec::Vec"));
@@ -103,15 +105,19 @@ fn test_generate_message_with_dependencies() -> Result<(), GeneratorError> {
     assert!(result.cargo_toml.contains("std_msgs"));
 
     // Verify namespaced types in RMW layer (current hierarchy: pkg::msg::rmw::Type)
-    assert!(result
-        .message_rmw
-        .contains("geometry_msgs::msg::rmw::Point"));
+    assert!(
+        result
+            .message_rmw
+            .contains("geometry_msgs::msg::rmw::Point")
+    );
     assert!(result.message_rmw.contains("std_msgs::msg::rmw::Header"));
 
     // Verify namespaced types in idiomatic layer
-    assert!(result
-        .message_idiomatic
-        .contains("geometry_msgs::msg::Point"));
+    assert!(
+        result
+            .message_idiomatic
+            .contains("geometry_msgs::msg::Point")
+    );
     assert!(result.message_idiomatic.contains("std_msgs::msg::Header"));
 
     Ok(())
@@ -213,14 +219,18 @@ fn test_generate_service_with_dependencies() -> Result<(), GeneratorError> {
     assert!(result.cargo_toml.contains("geometry_msgs"));
 
     // Verify namespaced types in RMW layer (current hierarchy: pkg::msg::rmw::Type)
-    assert!(result
-        .service_rmw
-        .contains("geometry_msgs::msg::rmw::Point"));
+    assert!(
+        result
+            .service_rmw
+            .contains("geometry_msgs::msg::rmw::Point")
+    );
 
     // Verify namespaced types in idiomatic layer
-    assert!(result
-        .service_idiomatic
-        .contains("geometry_msgs::msg::Point"));
+    assert!(
+        result
+            .service_idiomatic
+            .contains("geometry_msgs::msg::Point")
+    );
 
     Ok(())
 }
@@ -264,9 +274,11 @@ fn test_generate_simple_action() -> Result<(), GeneratorError> {
     assert!(result.action_rmw.contains("FibonacciResult"));
     assert!(result.action_rmw.contains("FibonacciFeedback"));
     assert!(result.action_rmw.contains("pub order: i32"));
-    assert!(result
-        .action_rmw
-        .contains("rosidl_runtime_rs::Sequence<i32>"));
+    assert!(
+        result
+            .action_rmw
+            .contains("rosidl_runtime_rs::Sequence<i32>")
+    );
 
     // Verify idiomatic layer
     assert!(result.action_idiomatic.contains("FibonacciGoal"));
@@ -293,9 +305,11 @@ fn test_generate_action_with_dependencies() -> Result<(), GeneratorError> {
     assert!(result.action_rmw.contains("geometry_msgs::msg::rmw::Point"));
 
     // Verify namespaced types in idiomatic layer
-    assert!(result
-        .action_idiomatic
-        .contains("geometry_msgs::msg::Point"));
+    assert!(
+        result
+            .action_idiomatic
+            .contains("geometry_msgs::msg::Point")
+    );
 
     Ok(())
 }
