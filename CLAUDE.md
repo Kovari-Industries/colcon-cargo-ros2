@@ -789,9 +789,9 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 
 ## Status
 
-**Version**: v0.3.3 (2025-11-23)
-**Progress**: 15/20 subphases (75%) | 180 tests passing (177 Rust + 3 Python) | Zero warnings
-**Latest**: Documentation clarification ✅, Dependency discovery from package.xml only ✅
+**Version**: v0.3.3 (2026-03-02)
+**Progress**: 15/20 subphases (75%) | 233 tests passing (211 Rust + 22 Python) | Zero warnings
+**Latest**: Configurable rosidl_runtime_rs version (default 0.6, `--rosidl-runtime-rs-version` override) ✅
 **Testing**: Validated with:
 - autoware_carla_bridge (118 packages) ✅
 - splat-drive workspace (6 packages + custom interfaces) ✅
@@ -826,5 +826,6 @@ Builds 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.
 - ✅ `[package.metadata.ros]` installation
 - ✅ `--cargo-args` pass-through
 - ✅ Version management with `just bump-version`
+- ✅ Configurable `rosidl_runtime_rs` version (default 0.6, `--rosidl-runtime-rs-version` CLI override)
 
 **Next**: Phase 3.4 - Enhanced Testing & Documentation
