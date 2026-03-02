@@ -2,6 +2,7 @@
 
 """Test task for Rust ROS 2 packages using cargo test."""
 
+import re
 import xml.etree.ElementTree as eTree
 from pathlib import Path
 from xml.dom import minidom
@@ -13,6 +14,9 @@ from colcon_core.shell import get_command_environment
 from colcon_core.task import TaskExtensionPoint, run
 
 logger = colcon_logger.getChild(__name__)
+
+# Strip ANSI escape codes that break XML parsing
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class AmentCargoTestTask(TaskExtensionPoint):
@@ -210,14 +214,14 @@ class AmentCargoTestTask(TaskExtensionPoint):
                 "failure",
                 {"message": f"cargo test failed with code {test_result.returncode}"},
             )
-            # Include stdout/stderr in failure message
+            # Include stdout/stderr in failure message (strip ANSI codes for valid XML)
             output_parts = []
             if hasattr(test_result, "stdout") and test_result.stdout:
                 output_parts.append(test_result.stdout.decode("utf-8", errors="replace"))
             if hasattr(test_result, "stderr") and test_result.stderr:
                 output_parts.append(test_result.stderr.decode("utf-8", errors="replace"))
             if output_parts:
-                failure.text = "\n".join(output_parts)
+                failure.text = _ANSI_RE.sub("", "\n".join(output_parts))
 
         # Add cargo fmt result if enabled
         if fmt_result is not None:
@@ -231,7 +235,9 @@ class AmentCargoTestTask(TaskExtensionPoint):
                     {"message": "cargo fmt --check found formatting issues"},
                 )
                 if hasattr(fmt_result, "stdout") and fmt_result.stdout:
-                    failure.text = fmt_result.stdout.decode("utf-8", errors="replace")
+                    failure.text = _ANSI_RE.sub(
+                        "", fmt_result.stdout.decode("utf-8", errors="replace")
+                    )
 
         # Write pretty-printed XML
         xml_str = minidom.parseString(eTree.tostring(testsuites))
