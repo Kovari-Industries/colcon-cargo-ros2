@@ -13,6 +13,7 @@ Architecture:
 4. Individual packages run plain `cargo build` (no --config needed)
 """
 
+import fcntl
 import os
 import re
 from pathlib import Path
@@ -64,18 +65,42 @@ class WorkspaceBindingGenerator:
         self.install_base = install_base
         self.args = args
         self.lock_file = build_base / ".colcon" / "bindgen.lock"
+        self._lock_fd = None
 
-    def should_generate(self) -> bool:
-        """Check if binding generation is needed (not already done by another process)."""
-        # If lock file exists, another process is/was handling binding generation
-        if self.lock_file.exists():
-            logger.info(f"Binding generation lock exists: {self.lock_file}")
+    def try_acquire_lock(self) -> bool:
+        """Try to acquire the binding generation lock.
+
+        Uses fcntl advisory locking so the lock is automatically released
+        when the process exits (even on crash or SIGKILL). This prevents
+        stale lock files from blocking subsequent builds.
+
+        Returns:
+            True if the lock was acquired (this process should generate bindings).
+            False if another process holds the lock.
+        """
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        self._lock_fd = open(self.lock_file, "w")
+        try:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self._lock_fd.write(str(os.getpid()))
+            self._lock_fd.flush()
+            return True
+        except OSError:
+            logger.info("Binding generation lock held by another process")
+            self._lock_fd.close()
+            self._lock_fd = None
             return False
 
-        # Create lock file to indicate we're handling binding generation
-        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
-        self.lock_file.write_text("locked")
-        return True
+    def release_lock(self):
+        """Release the binding generation lock."""
+        if self._lock_fd is not None:
+            fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+            self._lock_fd.close()
+            self._lock_fd = None
+            try:
+                self.lock_file.unlink()
+            except OSError:
+                pass
 
     def generate_all_bindings(self, verbose: bool = False):
         """Generate all ROS 2 bindings for the workspace.
@@ -960,8 +985,13 @@ def generate_workspace_bindings(
     """
     generator = WorkspaceBindingGenerator(workspace_root, build_base, install_base, args)
 
-    # Only generate if we're the first process to get the lock
-    if generator.should_generate():
-        generator.generate_all_bindings(verbose)
+    # Only generate if we're the first process to acquire the lock.
+    # fcntl advisory locking ensures the lock is released automatically
+    # if the process is killed, preventing stale locks.
+    if generator.try_acquire_lock():
+        try:
+            generator.generate_all_bindings(verbose)
+        finally:
+            generator.release_lock()
     else:
         logger.info("Binding generation already handled by another process")
