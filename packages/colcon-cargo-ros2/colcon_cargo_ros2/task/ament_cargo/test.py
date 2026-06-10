@@ -23,7 +23,6 @@ class AmentCargoTestTask(TaskExtensionPoint):
     """Test Rust ROS 2 packages using cargo test.
 
     This task runs cargo test with proper workspace configuration:
-    - Uses .cargo/config.toml for ROS message bindings (patches + rustflags)
     - Sources dependency environments via get_command_environment()
     - Generates JUnit XML output for colcon test-result
     - Posts TestFailure events for proper failure reporting
@@ -131,7 +130,6 @@ class AmentCargoTestTask(TaskExtensionPoint):
         """Build the cargo test command.
 
         Uses --manifest-path for package selection.
-        Patches and rustflags are picked up from .cargo/config.toml.
         """
         cmd = ["cargo", "test"]
 
